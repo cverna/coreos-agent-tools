@@ -91,7 +91,7 @@ class JenkinsClient:
     def get_job_builds(self, job_name: str, limit: int = 100) -> List[Dict]:
         """Get builds for a job, limited to most recent."""
         endpoint = f"/job/{job_name}/api/json"
-        params = {"tree": f"builds[number,timestamp,duration,result,url]{{0,{limit}}}"}
+        params = {"tree": f"builds[number,timestamp,duration,result,url,description]{{0,{limit}}}"}
         try:
             data = self._get(endpoint, params)
             return data.get("builds", [])
@@ -151,6 +151,7 @@ def cmd_list(args, client: JenkinsClient) -> Dict[str, Any]:
             "timestamp": build_time.isoformat(),
             "duration_ms": build.get("duration"),
             "url": build.get("url"),
+            "description": build.get("description"),
         })
 
     return {
@@ -165,6 +166,7 @@ def cmd_logs(args, client: JenkinsClient) -> Dict[str, Any]:
     logger.info(f"Fetching log for {args.job}#{args.build}")
 
     console_log = client.get_build_console_log(args.job, args.build)
+    log_lines = console_log.splitlines()
 
     if args.output:
         output_path = Path(args.output)
@@ -175,12 +177,14 @@ def cmd_logs(args, client: JenkinsClient) -> Dict[str, Any]:
             "job": args.job,
             "build_number": args.build,
             "log_file": str(output_path),
+            "line_count": len(log_lines),
         }
     else:
         return {
             "job": args.job,
             "build_number": args.build,
-            "console_log": console_log,
+            "console_log": log_lines,
+            "line_count": len(log_lines),
         }
 
 
