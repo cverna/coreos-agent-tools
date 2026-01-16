@@ -7,4 +7,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY *.py .
 
-ENTRYPOINT ["python", "coreos_pipeline_messages.py"]
+ENTRYPOINT ["python"]
