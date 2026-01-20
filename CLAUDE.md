@@ -9,7 +9,11 @@ CoreOS Agent Tools is a collection of Python CLI tools for monitoring and analyz
 - **coreos_pipeline_messages.py** - Fetches Slack messages from CoreOS pipeline channels and posts summaries
 - **jenkins.py** - Comprehensive Jenkins CLI for managing jobs, builds, queue, and nodes
 - **process_rhcos_cves.py** - Processes RHCOS CVEs from Jira, matches with RHEL issues, and creates issue links
-- **get_rhcos_image.py** - Retrieves RHCOS container image data for specific OCP versions
+- **get_rhcos_image.py** - Retrieves RHCOS container image data for specific OCP versions\
+
+## Task Tracking
+
+Use `bd` for task tracking
 
 ## Commands
 
