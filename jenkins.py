@@ -155,7 +155,7 @@ class JenkinsClient:
     def get_job_builds(self, job_name: str, limit: int = 100) -> List[Dict]:
         """Get builds for a job, limited to most recent."""
         endpoint = f"/job/{job_name}/api/json"
-        params = {"tree": f"builds[number,timestamp,duration,result,url,description]{{0,{limit}}}"}
+        params = {"tree": f"builds[number,timestamp,duration,result,building,url,description]{{0,{limit}}}"}
         try:
             data = self._get(endpoint, params)
             return data.get("builds", [])
@@ -357,9 +357,17 @@ def cmd_builds_list(args, client: JenkinsClient) -> Dict[str, Any]:
     build_list = []
     for build in builds:
         build_result = build.get("result")
+        is_building = build.get("building", False)
+
         # Filter by status if specified
-        if args.status and build_result != args.status.upper():
-            continue
+        if args.status:
+            status_upper = args.status.upper()
+            if status_upper == "RUNNING":
+                # Running builds have result=null and building=true
+                if not (build_result is None and is_building):
+                    continue
+            elif build_result != status_upper:
+                continue
 
         timestamp_ms = build.get("timestamp", 0)
         build_time = datetime.fromtimestamp(timestamp_ms / 1000)
@@ -373,6 +381,7 @@ def cmd_builds_list(args, client: JenkinsClient) -> Dict[str, Any]:
         build_list.append({
             "number": build.get("number"),
             "result": build_result,
+            "building": is_building,
             "timestamp": build_time.isoformat(),
             "duration_ms": build.get("duration"),
             "url": build.get("url"),
