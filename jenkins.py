@@ -244,6 +244,41 @@ class JenkinsClient:
             logger.error(f"Failed to get node info for '{node_name}': {e}")
             return {}
 
+    def get_running_jobs(self) -> List[Dict]:
+        """Get currently running jobs from executor status."""
+        endpoint = "/computer/api/json"
+        params = {"depth": 2}
+        try:
+            data = self._get(endpoint, params)
+            running = []
+            for computer in data.get("computer", []):
+                node_name = computer.get("displayName", "unknown")
+                for executor in computer.get("executors", []):
+                    current = executor.get("currentExecutable")
+                    if current:
+                        # Parse job name from fullDisplayName (e.g., "build-arch #2965 (kola)")
+                        full_name = current.get("fullDisplayName", "")
+                        job_url = current.get("url", "")
+                        # Extract job name from URL: .../job/build-arch/2965/
+                        job_name = ""
+                        if "/job/" in job_url:
+                            parts = job_url.rstrip("/").split("/job/")
+                            if len(parts) > 1:
+                                job_parts = parts[-1].split("/")
+                                if job_parts:
+                                    job_name = job_parts[0]
+                        running.append({
+                            "node": node_name,
+                            "job": job_name,
+                            "build_number": current.get("number"),
+                            "display_name": full_name,
+                            "url": job_url,
+                        })
+            return running
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to get running jobs: {e}")
+            return []
+
 
 # Command handlers
 
@@ -348,6 +383,20 @@ def cmd_jobs_abort(args, client: JenkinsClient) -> Dict[str, Any]:
     result["job"] = args.job
     result["build"] = args.build
     return result
+
+
+def cmd_jobs_running(args, client: JenkinsClient) -> Dict[str, Any]:
+    """List currently running jobs from executor status."""
+    running = client.get_running_jobs()
+
+    # Filter by job name if specified
+    if args.job:
+        running = [r for r in running if r.get("job") == args.job]
+
+    return {
+        "running_count": len(running),
+        "running": running,
+    }
 
 
 def cmd_builds_list(args, client: JenkinsClient) -> Dict[str, Any]:
@@ -612,6 +661,10 @@ def main():
     jobs_abort.add_argument("job", help="Job name")
     jobs_abort.add_argument("build", type=int, help="Build number")
 
+    # jobs running
+    jobs_running = jobs_sub.add_parser("running", help="List currently running jobs", parents=[common_parser])
+    jobs_running.add_argument("--job", help="Filter by job name")
+
     # === Builds Group ===
     builds_parser = subparsers.add_parser("builds", help="Manage build history", parents=[common_parser])
     builds_sub = builds_parser.add_subparsers(dest="action", help="Builds action")
@@ -708,6 +761,8 @@ def main():
                 result = cmd_jobs_build(args, client)
             elif args.action == "abort":
                 result = cmd_jobs_abort(args, client)
+            elif args.action == "running":
+                result = cmd_jobs_running(args, client)
 
         elif args.group == "builds":
             if not args.action:
