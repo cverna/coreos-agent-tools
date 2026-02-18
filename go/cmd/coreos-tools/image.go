@@ -66,7 +66,7 @@ func init() {
 
 	// Add get subcommand
 	imageGetCmd.Flags().StringVar(&imageOCPVersion, "ocp-version", "", "OpenShift version (e.g., '4.16', '4.17')")
-	imageGetCmd.MarkFlagRequired("ocp-version")
+	_ = imageGetCmd.MarkFlagRequired("ocp-version")
 	imageGetCmd.SilenceUsage = true
 	imageCmd.AddCommand(imageGetCmd)
 
