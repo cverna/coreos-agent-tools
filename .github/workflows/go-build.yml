@@ -1,0 +1,64 @@
+name: Go Build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'go/**'
+      - '.github/workflows/go-build.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'go/**'
+      - '.github/workflows/go-build.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./go
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go/go.mod'
+          cache-dependency-path: 'go/go.sum'
+
+      - name: Verify dependencies
+        run: go mod verify
+
+      - name: Run go fmt
+        run: |
+          if [ -n "$(go fmt ./...)" ]; then
+            echo "Code is not formatted. Run 'go fmt ./...'"
+            exit 1
+          fi
+
+      - name: Run go vet
+        run: go vet ./...
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          working-directory: ./go
+
+      - name: Run tests
+        run: go test -v -race -coverprofile=coverage.out ./...
+
+      - name: Build Linux amd64
+        run: GOOS=linux GOARCH=amd64 go build -v -o bin/coreos-tools-linux-amd64 ./cmd/coreos-tools
+
+      - name: Build Linux arm64
+        run: GOOS=linux GOARCH=arm64 go build -v -o bin/coreos-tools-linux-arm64 ./cmd/coreos-tools
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: coreos-tools
+          path: go/bin/
+          retention-days: 7
