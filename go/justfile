@@ -1,0 +1,59 @@
+# Default recipe - show available commands
+default:
+    @just --list
+
+# Build the binary
+build:
+    go build -o bin/coreos-tools ./cmd/coreos-tools
+
+# Build for Linux (for container)
+build-linux:
+    GOOS=linux GOARCH=amd64 go build -o bin/coreos-tools-linux ./cmd/coreos-tools
+
+# Run tests
+test:
+    go test -v ./...
+
+# Run tests with coverage
+test-coverage:
+    go test -coverprofile=coverage.out ./...
+    go tool cover -html=coverage.out -o coverage.html
+
+# Lint the code (requires golangci-lint)
+lint:
+    golangci-lint run
+
+# Format code
+fmt:
+    go fmt ./...
+
+# Tidy dependencies
+tidy:
+    go mod tidy
+
+# Clean build artifacts
+clean:
+    rm -rf bin/ coverage.out coverage.html
+
+# Build container image
+container:
+    podman build -t quay.io/cverna/coreos-tools -f Dockerfile ..
+
+# Run the CLI (pass arguments after --)
+run *ARGS:
+    go run ./cmd/coreos-tools {{ARGS}}
+
+# Show help for the CLI
+help:
+    go run ./cmd/coreos-tools --help
+
+# Build and install locally
+install:
+    go install ./cmd/coreos-tools
+
+# Verify the code compiles
+verify:
+    go build ./...
+
+# Run all checks (fmt, lint, test)
+check: fmt lint test
