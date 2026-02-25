@@ -247,13 +247,14 @@ type JobsResponse struct {
 
 // BuildSummary represents a simplified build for listing.
 type BuildSummary struct {
-	Number    int       `json:"number"`
-	URL       string    `json:"url"`
-	Result    string    `json:"result,omitempty"`
-	Building  bool      `json:"building"`
-	Duration  int64     `json:"duration"`
-	Timestamp time.Time `json:"timestamp"`
-	Stream    string    `json:"stream,omitempty"`
+	Number      int       `json:"number"`
+	URL         string    `json:"url"`
+	Result      string    `json:"result,omitempty"`
+	Building    bool      `json:"building"`
+	Duration    int64     `json:"duration"`
+	Timestamp   time.Time `json:"timestamp"`
+	Stream      string    `json:"stream,omitempty"`
+	Description string    `json:"description,omitempty"`
 }
 
 // RunningBuild represents a currently running build.

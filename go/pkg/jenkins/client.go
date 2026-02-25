@@ -214,11 +214,11 @@ func (c *Client) AbortBuild(jobName string, buildNumber int) error {
 	return nil
 }
 
-// extractStreamFromActions extracts the STREAM parameter value from build actions.
-func extractStreamFromActions(actions []BuildAction) string {
+// extractParamFromActions extracts a parameter value by name from build actions.
+func extractParamFromActions(actions []BuildAction, paramName string) string {
 	for _, action := range actions {
 		for _, param := range action.Parameters {
-			if param.Name == "STREAM" {
+			if param.Name == paramName {
 				if s, ok := param.Value.(string); ok {
 					return s
 				}
@@ -232,8 +232,8 @@ func extractStreamFromActions(actions []BuildAction) string {
 func (c *Client) ListBuilds(jobName string, limit int) ([]BuildSummary, error) {
 	endpoint := fmt.Sprintf("/%s/api/json", encodeJobPath(jobName))
 
-	// Include actions with parameters to extract STREAM
-	tree := fmt.Sprintf("builds[number,url,result,building,duration,timestamp,actions[parameters[name,value]]]{0,%d}", limit)
+	// Include actions with parameters to extract STREAM/ARCH, and description
+	tree := fmt.Sprintf("builds[number,url,result,building,duration,timestamp,description,actions[parameters[name,value]]]{0,%d}", limit)
 	data, err := c.get(endpoint, map[string]string{"tree": tree})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list builds: %w", err)
@@ -241,13 +241,14 @@ func (c *Client) ListBuilds(jobName string, limit int) ([]BuildSummary, error) {
 
 	var resp struct {
 		Builds []struct {
-			Number    int           `json:"number"`
-			URL       string        `json:"url"`
-			Result    string        `json:"result"`
-			Building  bool          `json:"building"`
-			Duration  int64         `json:"duration"`
-			Timestamp int64         `json:"timestamp"`
-			Actions   []BuildAction `json:"actions"`
+			Number      int           `json:"number"`
+			URL         string        `json:"url"`
+			Result      string        `json:"result"`
+			Building    bool          `json:"building"`
+			Duration    int64         `json:"duration"`
+			Timestamp   int64         `json:"timestamp"`
+			Description string        `json:"description"`
+			Actions     []BuildAction `json:"actions"`
 		} `json:"builds"`
 	}
 	if err := json.Unmarshal(data, &resp); err != nil {
@@ -257,13 +258,14 @@ func (c *Client) ListBuilds(jobName string, limit int) ([]BuildSummary, error) {
 	var builds []BuildSummary
 	for _, b := range resp.Builds {
 		builds = append(builds, BuildSummary{
-			Number:    b.Number,
-			URL:       b.URL,
-			Result:    b.Result,
-			Building:  b.Building,
-			Duration:  b.Duration,
-			Timestamp: time.UnixMilli(b.Timestamp),
-			Stream:    extractStreamFromActions(b.Actions),
+			Number:      b.Number,
+			URL:         b.URL,
+			Result:      b.Result,
+			Building:    b.Building,
+			Duration:    b.Duration,
+			Timestamp:   time.UnixMilli(b.Timestamp),
+			Stream:      extractParamFromActions(b.Actions, "STREAM"),
+			Description: b.Description,
 		})
 	}
 
