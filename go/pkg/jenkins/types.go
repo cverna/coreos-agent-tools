@@ -253,6 +253,7 @@ type BuildSummary struct {
 	Building  bool      `json:"building"`
 	Duration  int64     `json:"duration"`
 	Timestamp time.Time `json:"timestamp"`
+	Stream    string    `json:"stream,omitempty"`
 }
 
 // RunningBuild represents a currently running build.

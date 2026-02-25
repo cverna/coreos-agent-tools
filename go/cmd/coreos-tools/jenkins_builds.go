@@ -8,10 +8,12 @@ import (
 )
 
 var (
-	buildsListLimit  int
-	buildsListStatus string
-	buildsListDays   int
-	buildLogOutput   string
+	buildsListLimit      int
+	buildsListFetchLimit int
+	buildsListStatus     string
+	buildsListDays       int
+	buildsListStream     string
+	buildLogOutput       string
 )
 
 // builds list
@@ -23,9 +25,15 @@ var buildsListCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		jobName := args[0]
 
+		// Determine fetch limit (use flag value, or default to limit * 10)
+		fetchLimit := buildsListFetchLimit
+		if fetchLimit == 0 {
+			fetchLimit = buildsListLimit * 10
+		}
+
 		// If status filter is for failures, use the specialized method
 		if buildsListStatus == "FAILURE" || buildsListStatus == "ABORTED" {
-			builds, err := jenkinsClient.GetFailedBuilds(jobName, buildsListLimit, buildsListDays)
+			builds, err := jenkinsClient.GetFailedBuilds(jobName, buildsListLimit, buildsListDays, buildsListStream, fetchLimit)
 			if err != nil {
 				printError(err)
 				return err
@@ -33,24 +41,36 @@ var buildsListCmd = &cobra.Command{
 			return printJSON(builds)
 		}
 
-		builds, err := jenkinsClient.ListBuilds(jobName, buildsListLimit)
+		builds, err := jenkinsClient.ListBuilds(jobName, fetchLimit)
 		if err != nil {
 			printError(err)
 			return err
 		}
 
-		// Apply status filter if specified
-		if buildsListStatus != "" {
-			var filtered []interface{}
-			for _, b := range builds {
-				if b.Result == buildsListStatus {
-					filtered = append(filtered, b)
-				}
+		// Apply filters
+		var filtered []interface{}
+		for _, b := range builds {
+			// Apply status filter if specified
+			if buildsListStatus != "" && b.Result != buildsListStatus {
+				continue
 			}
-			return printJSON(filtered)
+			// Apply stream filter if specified
+			if buildsListStream != "" && b.Stream != buildsListStream {
+				continue
+			}
+			filtered = append(filtered, b)
+			// Stop if we have enough results
+			if len(filtered) >= buildsListLimit {
+				break
+			}
 		}
 
-		return printJSON(builds)
+		// If no filters were applied, return original builds (up to limit)
+		if buildsListStatus == "" && buildsListStream == "" {
+			return printJSON(builds)
+		}
+
+		return printJSON(filtered)
 	},
 }
 
@@ -168,8 +188,10 @@ var buildsArtifactsCmd = &cobra.Command{
 func init() {
 	// builds list flags
 	buildsListCmd.Flags().IntVarP(&buildsListLimit, "last", "n", 10, "Number of builds to show")
+	buildsListCmd.Flags().IntVar(&buildsListFetchLimit, "fetch-limit", 0, "Number of builds to fetch before filtering (default: 10x --last)")
 	buildsListCmd.Flags().StringVar(&buildsListStatus, "status", "", "Filter by build status (SUCCESS, FAILURE, ABORTED, UNSTABLE)")
 	buildsListCmd.Flags().IntVarP(&buildsListDays, "days", "d", 0, "Only show builds from the last N days")
+	buildsListCmd.Flags().StringVar(&buildsListStream, "stream", "", "Filter by stream name (e.g., rhel-9.6, 4.17-9.4)")
 
 	// builds log flags
 	buildsLogCmd.Flags().StringVarP(&buildLogOutput, "output", "o", "", "Save log to file instead of stdout")

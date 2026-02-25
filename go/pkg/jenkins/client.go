@@ -214,11 +214,26 @@ func (c *Client) AbortBuild(jobName string, buildNumber int) error {
 	return nil
 }
 
+// extractStreamFromActions extracts the STREAM parameter value from build actions.
+func extractStreamFromActions(actions []BuildAction) string {
+	for _, action := range actions {
+		for _, param := range action.Parameters {
+			if param.Name == "STREAM" {
+				if s, ok := param.Value.(string); ok {
+					return s
+				}
+			}
+		}
+	}
+	return ""
+}
+
 // ListBuilds returns a list of builds for a job.
 func (c *Client) ListBuilds(jobName string, limit int) ([]BuildSummary, error) {
 	endpoint := fmt.Sprintf("/%s/api/json", encodeJobPath(jobName))
 
-	tree := fmt.Sprintf("builds[number,url,result,building,duration,timestamp]{0,%d}", limit)
+	// Include actions with parameters to extract STREAM
+	tree := fmt.Sprintf("builds[number,url,result,building,duration,timestamp,actions[parameters[name,value]]]{0,%d}", limit)
 	data, err := c.get(endpoint, map[string]string{"tree": tree})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list builds: %w", err)
@@ -226,12 +241,13 @@ func (c *Client) ListBuilds(jobName string, limit int) ([]BuildSummary, error) {
 
 	var resp struct {
 		Builds []struct {
-			Number    int    `json:"number"`
-			URL       string `json:"url"`
-			Result    string `json:"result"`
-			Building  bool   `json:"building"`
-			Duration  int64  `json:"duration"`
-			Timestamp int64  `json:"timestamp"`
+			Number    int           `json:"number"`
+			URL       string        `json:"url"`
+			Result    string        `json:"result"`
+			Building  bool          `json:"building"`
+			Duration  int64         `json:"duration"`
+			Timestamp int64         `json:"timestamp"`
+			Actions   []BuildAction `json:"actions"`
 		} `json:"builds"`
 	}
 	if err := json.Unmarshal(data, &resp); err != nil {
@@ -247,6 +263,7 @@ func (c *Client) ListBuilds(jobName string, limit int) ([]BuildSummary, error) {
 			Building:  b.Building,
 			Duration:  b.Duration,
 			Timestamp: time.UnixMilli(b.Timestamp),
+			Stream:    extractStreamFromActions(b.Actions),
 		})
 	}
 
@@ -373,8 +390,8 @@ func extractJobName(buildURL string) string {
 }
 
 // GetFailedBuilds returns a list of failed builds for a job.
-func (c *Client) GetFailedBuilds(jobName string, limit int, days int) ([]BuildSummary, error) {
-	builds, err := c.ListBuilds(jobName, limit*5) // Fetch more to filter
+func (c *Client) GetFailedBuilds(jobName string, limit int, days int, stream string, fetchLimit int) ([]BuildSummary, error) {
+	builds, err := c.ListBuilds(jobName, fetchLimit)
 	if err != nil {
 		return nil, err
 	}
@@ -388,6 +405,11 @@ func (c *Client) GetFailedBuilds(jobName string, limit int, days int) ([]BuildSu
 	for _, build := range builds {
 		// Filter by time if days specified
 		if days > 0 && build.Timestamp.Before(cutoff) {
+			continue
+		}
+
+		// Filter by stream if specified
+		if stream != "" && build.Stream != stream {
 			continue
 		}
 
