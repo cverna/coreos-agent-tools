@@ -162,9 +162,38 @@ For the failed build log, identify:
 - Any stack traces or error codes
 - Test failures (look for `FAIL:` in kola output)
 
-Look for common patterns:
+**For kola test failures, use the dedicated command:**
+
+```bash
+coreos-tools jenkins builds kola-failures <job-name> <build-number>
+```
+
+This returns a structured summary of all failed kola tests:
+
+```json
+{
+  "build": {"job": "build", "number": 3463, "stream": "rhel-9.6"},
+  "failures": [
+    {
+      "name": "ext.config.shared.multipath.custom-partition",
+      "error": "machine entered emergency.target in initramfs",
+      "duration_seconds": 15.92,
+      "attempts": 2,
+      "rerun_failed": true
+    }
+  ]
+}
+```
+
+Fields:
+- `name`: Test name
+- `error`: Error message from the test
+- `duration_seconds`: How long the test ran
+- `attempts`: Number of times the test was run (1 = no rerun, 2 = rerun attempted)
+- `rerun_failed`: true if the test also failed on rerun, false if it passed on rerun (flaky)
+
+**For other failures, look for common patterns:**
 - `ERROR:` or `FATAL:` messages
-- `FAIL:` test results (kola tests)
 - Stack traces and exceptions
 - Timeout errors
 - Network/connectivity issues
@@ -172,9 +201,9 @@ Look for common patterns:
 - Permission denied errors
 - Missing dependencies
 
-For test failures, extract the failing test name:
+For manual log inspection:
 ```bash
-grep -E "FAIL:|failed:" /tmp/failed_build.log | tail -20
+grep -E "FAIL:|failed:|ERROR:" /tmp/failed_build.log | tail -20
 ```
 
 ### Step 8: Generate Summary
@@ -315,6 +344,9 @@ coreos-tools jenkins builds list <job-name> --stream rhel-9.6 -n 10
 
 # Filter builds by stream and status
 coreos-tools jenkins builds list <job-name> --stream rhel-9.6 --status FAILURE -n 5
+
+# Get kola test failure summary (no artifact download needed)
+coreos-tools jenkins builds kola-failures <job-name> <build-number>
 
 # Backwards compatible failures command
 coreos-tools jenkins failures <job-name> -n 5
