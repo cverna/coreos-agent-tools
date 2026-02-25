@@ -14,6 +14,8 @@ var (
 	buildsListDays       int
 	buildsListStream     string
 	buildLogOutput       string
+	artifactsDownload    string
+	artifactsOutput      string
 )
 
 // builds list
@@ -142,8 +144,8 @@ var buildsLogCmd = &cobra.Command{
 // builds artifacts
 var buildsArtifactsCmd = &cobra.Command{
 	Use:   "artifacts <job-name> <build-number>",
-	Short: "List build artifacts",
-	Long:  `List artifacts produced by a specific build.`,
+	Short: "List or download build artifacts",
+	Long:  `List artifacts produced by a specific build, or download a specific artifact.`,
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		jobName := args[0]
@@ -152,13 +154,68 @@ var buildsArtifactsCmd = &cobra.Command{
 			return fmt.Errorf("invalid build number: %s", args[1])
 		}
 
+		// Validate: --output requires --download
+		if artifactsOutput != "" && artifactsDownload == "" {
+			return fmt.Errorf("--output requires --download")
+		}
+
 		artifacts, err := jenkinsClient.GetBuildArtifacts(jobName, buildNumber)
 		if err != nil {
 			printError(err)
 			return err
 		}
 
-		// Add download URLs to artifacts
+		// Get build info for URLs
+		info, err := jenkinsClient.GetBuildInfo(jobName, buildNumber)
+		if err != nil {
+			printError(err)
+			return err
+		}
+
+		// If --download is specified, download the artifact
+		if artifactsDownload != "" {
+			// Find artifact by exact filename match
+			var found *struct {
+				FileName     string
+				RelativePath string
+			}
+			for _, a := range artifacts {
+				if a.FileName == artifactsDownload {
+					found = &struct {
+						FileName     string
+						RelativePath string
+					}{a.FileName, a.RelativePath}
+					break
+				}
+			}
+			if found == nil {
+				return fmt.Errorf("artifact not found: %s", artifactsDownload)
+			}
+
+			// Build download URL
+			downloadURL := info.URL + "artifact/" + found.RelativePath
+
+			// Determine output path
+			outputPath := artifactsOutput
+			if outputPath == "" {
+				outputPath = found.FileName
+			}
+
+			// Download
+			size, err := jenkinsClient.DownloadArtifact(downloadURL, outputPath)
+			if err != nil {
+				printError(err)
+				return err
+			}
+
+			return printJSON(map[string]interface{}{
+				"status": "downloaded",
+				"file":   outputPath,
+				"size":   size,
+			})
+		}
+
+		// Default: list artifacts with URLs
 		type artifactWithURL struct {
 			FileName     string `json:"fileName"`
 			RelativePath string `json:"relativePath"`
@@ -166,7 +223,6 @@ var buildsArtifactsCmd = &cobra.Command{
 			DownloadURL  string `json:"downloadUrl"`
 		}
 
-		info, _ := jenkinsClient.GetBuildInfo(jobName, buildNumber)
 		var result []artifactWithURL
 		for _, a := range artifacts {
 			url := ""
@@ -195,6 +251,10 @@ func init() {
 
 	// builds log flags
 	buildsLogCmd.Flags().StringVarP(&buildLogOutput, "output", "o", "", "Save log to file instead of stdout")
+
+	// builds artifacts flags
+	buildsArtifactsCmd.Flags().StringVar(&artifactsDownload, "download", "", "Download artifact by filename")
+	buildsArtifactsCmd.Flags().StringVarP(&artifactsOutput, "output", "o", "", "Output file path (default: artifact filename)")
 
 	// Add commands to builds group
 	jenkinsBuildsCmd.AddCommand(buildsListCmd)

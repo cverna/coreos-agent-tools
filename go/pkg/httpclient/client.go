@@ -15,6 +15,8 @@ const (
 	MaxRetries = 3
 	// DefaultTimeout is the default request timeout.
 	DefaultTimeout = 30 * time.Second
+	// DownloadTimeout is the timeout for downloading large files.
+	DownloadTimeout = 10 * time.Minute
 	// RetryWaitMin is the minimum wait time between retries.
 	RetryWaitMin = 1 * time.Second
 	// RetryWaitMax is the maximum wait time between retries.
@@ -66,6 +68,17 @@ func New(logger *slog.Logger) *Client {
 	}
 	return &Client{
 		httpClient: newRetryableClient(DefaultTimeout, logger),
+		logger:     logger,
+	}
+}
+
+// NewWithTimeout creates a new throttled HTTP client with a custom timeout.
+func NewWithTimeout(logger *slog.Logger, timeout time.Duration) *Client {
+	if logger == nil {
+		logger = slog.Default()
+	}
+	return &Client{
+		httpClient: newRetryableClient(timeout, logger),
 		logger:     logger,
 	}
 }

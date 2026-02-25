@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -302,6 +303,40 @@ func (c *Client) GetBuildArtifacts(jobName string, buildNumber int) ([]Artifact,
 		return nil, err
 	}
 	return build.Artifacts, nil
+}
+
+// DownloadArtifact downloads an artifact from the given URL to a local file.
+// Returns the number of bytes written.
+func (c *Client) DownloadArtifact(artifactURL string, outputPath string) (int64, error) {
+	// Create a client with longer timeout for downloads
+	downloadClient := httpclient.NewWithTimeout(c.logger, httpclient.DownloadTimeout)
+
+	resp, err := downloadClient.GetWithAuth(artifactURL, c.username, c.token)
+	if err != nil {
+		return 0, fmt.Errorf("failed to download artifact: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return 0, fmt.Errorf("artifact not found: %s", artifactURL)
+	}
+
+	if resp.StatusCode >= 400 {
+		return 0, fmt.Errorf("failed to download artifact (HTTP %d)", resp.StatusCode)
+	}
+
+	file, err := os.Create(outputPath)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create output file: %w", err)
+	}
+	defer file.Close()
+
+	written, err := io.Copy(file, resp.Body)
+	if err != nil {
+		return 0, fmt.Errorf("failed to write artifact: %w", err)
+	}
+
+	return written, nil
 }
 
 // GetQueue returns the current build queue.
