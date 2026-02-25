@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -294,6 +296,97 @@ func (c *Client) GetBuildInfo(jobName string, buildNumber int) (*Build, error) {
 func (c *Client) GetBuildLog(jobName string, buildNumber int) (string, error) {
 	endpoint := fmt.Sprintf("/%s/%d/consoleText", encodeJobPath(jobName), buildNumber)
 	return c.getText(endpoint)
+}
+
+// GetKolaFailures extracts kola test failures from a build's console log.
+func (c *Client) GetKolaFailures(jobName string, buildNumber int) (*KolaFailureSummary, error) {
+	// Get the build log
+	log, err := c.GetBuildLog(jobName, buildNumber)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get build log: %w", err)
+	}
+
+	// Get build info for stream
+	buildInfo, err := c.GetBuildInfo(jobName, buildNumber)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get build info: %w", err)
+	}
+
+	// Extract stream from build parameters (STREAM parameter in actions)
+	stream := extractParamFromActions(buildInfo.Actions, "STREAM")
+
+	// Parse kola failures from log
+	// Pattern: --- \x1b[31mFAIL\x1b[0m: <test-name> (<duration>s)
+	// Note: \x1b is the ESC character for ANSI codes
+	// Lines may be prefixed with timestamps like [2026-02-25T09:46:05.650Z]
+	failPattern := regexp.MustCompile(`--- \x1b\[31mFAIL\x1b\[0m: (.+?) \(([0-9.]+)s\)`)
+	// Pattern for error message (next line after FAIL)
+	errorPattern := regexp.MustCompile(`harness\.go:\d+: (.+)`)
+
+	// Track failures by test name for deduplication
+	// If a test appears multiple times, it means it was rerun and failed again
+	failures := make(map[string]*KolaFailedTest)
+	failureOrder := []string{} // Preserve order
+
+	lines := strings.Split(log, "\n")
+	var lastFailedTest string
+
+	for _, line := range lines {
+
+		// Check for FAIL line
+		if matches := failPattern.FindStringSubmatch(line); len(matches) > 2 {
+			testName := matches[1]
+			duration, _ := strconv.ParseFloat(matches[2], 64)
+
+			if existing, ok := failures[testName]; ok {
+				// Test failed again (in rerun)
+				existing.Attempts++
+				existing.RerunFailed = true
+			} else {
+				// First failure for this test
+				failures[testName] = &KolaFailedTest{
+					Name:            testName,
+					DurationSeconds: duration,
+					Attempts:        1,
+					RerunFailed:     false,
+				}
+				failureOrder = append(failureOrder, testName)
+			}
+			lastFailedTest = testName
+			continue
+		}
+
+		// Check for error message (follows FAIL line)
+		if lastFailedTest != "" {
+			if matches := errorPattern.FindStringSubmatch(line); len(matches) > 1 {
+				if failure, ok := failures[lastFailedTest]; ok {
+					// Only set error on first occurrence (don't overwrite with rerun error)
+					if failure.Error == "" {
+						failure.Error = matches[1]
+					}
+				}
+				lastFailedTest = ""
+			}
+		}
+	}
+
+	// Build result in original order
+	// Note: Tests with Attempts=1 and RerunFailed=false passed on rerun (flaky tests)
+	resultFailures := make([]KolaFailedTest, 0)
+	for _, name := range failureOrder {
+		if failure, ok := failures[name]; ok {
+			resultFailures = append(resultFailures, *failure)
+		}
+	}
+
+	return &KolaFailureSummary{
+		Build: KolaBuildInfo{
+			Job:    jobName,
+			Number: buildNumber,
+			Stream: stream,
+		},
+		Failures: resultFailures,
+	}, nil
 }
 
 // GetBuildArtifacts returns the artifacts for a build.

@@ -266,3 +266,25 @@ type RunningBuild struct {
 	Progress    int       `json:"progress"`
 	StartTime   time.Time `json:"start_time,omitempty"`
 }
+
+// KolaFailureSummary represents a summary of kola test failures for a build.
+type KolaFailureSummary struct {
+	Build    KolaBuildInfo    `json:"build"`
+	Failures []KolaFailedTest `json:"failures"`
+}
+
+// KolaBuildInfo contains build identification info.
+type KolaBuildInfo struct {
+	Job    string `json:"job"`
+	Number int    `json:"number"`
+	Stream string `json:"stream,omitempty"`
+}
+
+// KolaFailedTest represents a failed kola test with deduplication.
+type KolaFailedTest struct {
+	Name            string  `json:"name"`
+	Error           string  `json:"error"`
+	DurationSeconds float64 `json:"duration_seconds"`
+	Attempts        int     `json:"attempts"`
+	RerunFailed     bool    `json:"rerun_failed"`
+}

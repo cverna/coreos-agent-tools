@@ -241,6 +241,29 @@ var buildsArtifactsCmd = &cobra.Command{
 	},
 }
 
+// builds kola-failures
+var buildsKolaFailuresCmd = &cobra.Command{
+	Use:   "kola-failures <job-name> <build-number>",
+	Short: "Summarize kola test failures from build logs",
+	Long:  `Extract and summarize kola test failures from a build's console log.`,
+	Args:  cobra.ExactArgs(2),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		jobName := args[0]
+		var buildNumber int
+		if _, err := fmt.Sscanf(args[1], "%d", &buildNumber); err != nil {
+			return fmt.Errorf("invalid build number: %s", args[1])
+		}
+
+		summary, err := jenkinsClient.GetKolaFailures(jobName, buildNumber)
+		if err != nil {
+			printError(err)
+			return err
+		}
+
+		return printJSON(summary)
+	},
+}
+
 func init() {
 	// builds list flags
 	buildsListCmd.Flags().IntVarP(&buildsListLimit, "last", "n", 10, "Number of builds to show")
@@ -261,10 +284,12 @@ func init() {
 	jenkinsBuildsCmd.AddCommand(buildsInfoCmd)
 	jenkinsBuildsCmd.AddCommand(buildsLogCmd)
 	jenkinsBuildsCmd.AddCommand(buildsArtifactsCmd)
+	jenkinsBuildsCmd.AddCommand(buildsKolaFailuresCmd)
 
 	// Suppress usage on errors
 	buildsListCmd.SilenceUsage = true
 	buildsInfoCmd.SilenceUsage = true
 	buildsLogCmd.SilenceUsage = true
 	buildsArtifactsCmd.SilenceUsage = true
+	buildsKolaFailuresCmd.SilenceUsage = true
 }
