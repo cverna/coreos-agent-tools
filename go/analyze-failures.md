@@ -42,10 +42,10 @@ coreos-tools jenkins builds list build-node-image --status FAILURE -n 5
 coreos-tools jenkins builds list release --status FAILURE -n 5
 ```
 
-If a stream is specified, filter the results:
+If a stream is specified, use the `--stream` flag to filter directly:
 
 ```bash
-coreos-tools jenkins builds list <job-name> --status FAILURE -n 20 | jq '[.builds[] | select(.description | test("<stream>"; "i"))] | first'
+coreos-tools jenkins builds list <job-name> --status FAILURE --stream <stream> -n <count>
 ```
 
 Parse the JSON output to get the list of failed builds with their build numbers and timestamps.
@@ -76,10 +76,16 @@ This provides:
 
 ### Step 3: Find Last Known Good Build
 
-For each failed build, find the last successful build for the same stream:
+For each failed build, find the last successful build for the same stream using the `--stream` flag:
 
 ```bash
-coreos-tools jenkins builds list <job-name> --status SUCCESS -n 100 | jq '[.builds[] | select(.description | test("<stream>"; "i")) | select(.description | test("no new build") | not)] | first'
+coreos-tools jenkins builds list <job-name> --status SUCCESS --stream <stream> -n 10
+```
+
+Then filter out "no new build" entries if needed:
+
+```bash
+coreos-tools jenkins builds list <job-name> --status SUCCESS --stream <stream> -n 20 | jq '[.[] | select(.description | test("no new build") | not)] | first'
 ```
 
 Get details of the last known good build:
@@ -102,7 +108,9 @@ coreos-tools jenkins builds log <job-name> <good-build-number> | jq -r '.console
 
 ### Step 5: Compare Component Versions
 
-Extract and compare key component versions between builds:
+Extract and compare key component versions between builds.
+
+**Option A**: Extract from logs:
 
 ```bash
 # coreos-assembler version
@@ -116,6 +124,19 @@ grep -i "rpm-ostree-[0-9]" /tmp/good_build.log | head -3
 # Kernel version
 grep -i "dracut.*kver" /tmp/failed_build.log | head -1
 grep -i "dracut.*kver" /tmp/good_build.log | head -1
+```
+
+**Option B**: Download artifacts directly for more detailed comparison:
+
+```bash
+# Download coreos-assembler-git.json from failed build
+coreos-tools jenkins builds artifacts <job-name> <failed-build-number> --download coreos-assembler-git.json -o /tmp/failed-cosa-git.json
+
+# Download coreos-assembler-git.json from good build
+coreos-tools jenkins builds artifacts <job-name> <good-build-number> --download coreos-assembler-git.json -o /tmp/good-cosa-git.json
+
+# Compare
+diff /tmp/good-cosa-git.json /tmp/failed-cosa-git.json
 ```
 
 ### Step 6: Investigate Component Changes
@@ -283,6 +304,33 @@ coreos-tools jenkins nodes list
 # List build artifacts
 coreos-tools jenkins builds artifacts <job-name> <build-number>
 
+# Download a specific artifact
+coreos-tools jenkins builds artifacts <job-name> <build-number> --download <artifact-name>
+
+# Download artifact to a specific path
+coreos-tools jenkins builds artifacts <job-name> <build-number> --download <artifact-name> -o /tmp/output.tar.xz
+
+# Filter builds by stream
+coreos-tools jenkins builds list <job-name> --stream rhel-9.6 -n 10
+
+# Filter builds by stream and status
+coreos-tools jenkins builds list <job-name> --stream rhel-9.6 --status FAILURE -n 5
+
 # Backwards compatible failures command
 coreos-tools jenkins failures <job-name> -n 5
 ```
+
+## Build Output Fields
+
+The `builds list` command returns the following fields:
+
+| Field | Description |
+|-------|-------------|
+| `number` | Build number |
+| `url` | Jenkins build URL |
+| `result` | Build status (SUCCESS, FAILURE, ABORTED, UNSTABLE) |
+| `building` | Whether the build is currently running |
+| `duration` | Build duration in milliseconds |
+| `timestamp` | Build start time |
+| `stream` | Stream name from STREAM parameter (e.g., rhel-9.6, 4.17-9.4) |
+| `description` | Build description (e.g., `[rhel-9.6][x86_64] ⚡ 9.6.20260225-0`) |
