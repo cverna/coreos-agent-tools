@@ -74,7 +74,27 @@ This provides:
 - Trigger cause (upstream job, user, timer)
 - Duration and timestamps
 
-### Step 3: Find Last Known Good Build
+### Step 3: Quick Failure Triage
+
+Immediately run a quick triage to determine the failure type before fetching large log files.
+
+**Check for kola test failures:**
+
+```bash
+coreos-tools jenkins builds kola-failures <job-name> <build-number>
+```
+
+**Check what packages changed in this build:**
+
+```bash
+coreos-tools jenkins builds diff <job-name> <build-number>
+```
+
+**Decision:**
+- **Test failures found** → Proceed to Step 4 (Find Last Known Good Build) then Step 5 (Compare Packages) to identify which package change caused the regression
+- **No test failures** → Skip to Step 6 (Fetch Logs) to investigate build/infrastructure failure
+
+### Step 4: Find Last Known Good Build
 
 For each failed build, find the last successful build for the same stream using the `--stream` flag:
 
@@ -94,46 +114,17 @@ Get details of the last known good build:
 coreos-tools jenkins builds info <job-name> <good-build-number>
 ```
 
-### Step 4: Fetch and Compare Logs
+### Step 5: Compare Package Changes
 
-Fetch logs for both the failed and last good build:
+Compare packages between the last known good build and the failed build to identify what changed.
 
-```bash
-# Failed build log
-coreos-tools jenkins builds log <job-name> <failed-build-number> | jq -r '.console_log[]' > /tmp/failed_build.log
-
-# Last good build log
-coreos-tools jenkins builds log <job-name> <good-build-number> | jq -r '.console_log[]' > /tmp/good_build.log
-```
-
-### Step 5: Compare Component Versions
-
-Extract and compare key component versions between builds.
-
-**Option A (Recommended)**: Use the `diff` command to show package changes:
+**Compare full package lists:**
 
 ```bash
-# Show what packages were upgraded in the failed build
-coreos-tools jenkins builds diff <job-name> <failed-build-number>
-
-# Compare full package lists between good and failed builds
 coreos-tools jenkins builds diff <job-name> <good-build-number> <failed-build-number>
 ```
 
-The single-build mode shows the "Upgraded:" section from the build log:
-```json
-{
-  "build": 3463,
-  "stream": "rhel-9.6",
-  "mode": "upgrades",
-  "upgrades": [
-    "kernel 5.14.0-570.93.1.el9_6 -> 5.14.0-570.94.1.el9_6",
-    "ignition 2.21.0-6.el9_6 -> 2.21.0-6.rhaos4.19.el9"
-  ]
-}
-```
-
-The two-build mode returns both package lists for comparison:
+This returns both package lists in JSON format:
 ```json
 {
   "build1": 3399,
@@ -144,38 +135,52 @@ The two-build mode returns both package lists for comparison:
 }
 ```
 
-You can use `jq` or `diff` to compare the package lists as needed.
-
-**Option B**: Extract from logs manually:
+**Analyze the diff with jq:**
 
 ```bash
-# coreos-assembler version
-grep -A 5 "coreos-assembler-git.json" /tmp/failed_build.log | head -10
-grep -A 5 "coreos-assembler-git.json" /tmp/good_build.log | head -10
+# Save output for analysis
+coreos-tools jenkins builds diff <job-name> <good-build> <failed-build> > /tmp/builds_diff.json
 
-# rpm-ostree version
-grep -i "rpm-ostree-[0-9]" /tmp/failed_build.log | head -3
-grep -i "rpm-ostree-[0-9]" /tmp/good_build.log | head -3
+# Find packages only in failed build (added/upgraded)
+jq -r '.build1_packages[] | split(" ")[0]' /tmp/builds_diff.json | sort > /tmp/pkgs1.txt
+jq -r '.build2_packages[] | split(" ")[0]' /tmp/builds_diff.json | sort > /tmp/pkgs2.txt
+comm -13 /tmp/pkgs1.txt /tmp/pkgs2.txt
 
-# Kernel version
-grep -i "dracut.*kver" /tmp/failed_build.log | head -1
-grep -i "dracut.*kver" /tmp/good_build.log | head -1
+# Find packages only in good build (removed/downgraded)
+comm -23 /tmp/pkgs1.txt /tmp/pkgs2.txt
 ```
 
-**Option B**: Download artifacts directly for more detailed comparison:
+**Option B (Manual)**: If you need to compare coreos-assembler versions or other artifacts:
 
 ```bash
-# Download coreos-assembler-git.json from failed build
+# Download coreos-assembler-git.json from both builds
 coreos-tools jenkins builds artifacts <job-name> <failed-build-number> --download coreos-assembler-git.json -o /tmp/failed-cosa-git.json
-
-# Download coreos-assembler-git.json from good build
 coreos-tools jenkins builds artifacts <job-name> <good-build-number> --download coreos-assembler-git.json -o /tmp/good-cosa-git.json
 
 # Compare
 diff /tmp/good-cosa-git.json /tmp/failed-cosa-git.json
 ```
 
-### Step 6: Investigate Component Changes
+### Step 6: Fetch Logs (If Needed)
+
+**Skip this step if** the triage in Step 3 identified the failing tests and Step 5 identified the likely package change.
+
+**Fetch logs when:**
+- Build failed before tests ran (compose failure)
+- Need full error context
+- Infrastructure failure suspected
+
+Fetch logs for the failed build (and optionally the last good build):
+
+```bash
+# Failed build log
+coreos-tools jenkins builds log <job-name> <failed-build-number> | jq -r '.console_log[]' > /tmp/failed_build.log
+
+# Last good build log
+coreos-tools jenkins builds log <job-name> <good-build-number> | jq -r '.console_log[]' > /tmp/good_build.log
+```
+
+### Step 7: Investigate Component Changes
 
 If component versions differ (especially coreos-assembler), use GitHub CLI to find changes:
 
@@ -190,59 +195,31 @@ gh api repos/coreos/coreos-assembler/commits/<commit-sha> --jq '{sha: .sha, auth
 gh api repos/coreos/coreos-assembler/commits/<commit-sha> --jq '.files[] | {filename: .filename, patch: .patch}'
 ```
 
-### Step 7: Analyze Failure Details
+### Step 8: Analyze Failure Details
 
-For the failed build log, identify:
-- The specific error message or failure point
-- The stage/step where the failure occurred
-- Any stack traces or error codes
-- Test failures (look for `FAIL:` in kola output)
+If Step 3 (Quick Triage) didn't fully identify the issue, analyze the logs fetched in Step 6.
 
-**For kola test failures, use the dedicated command:**
+**For build/compose failures, look for common patterns:**
 
 ```bash
-coreos-tools jenkins builds kola-failures <job-name> <build-number>
+# General errors
+grep -E "^error:|FATAL:|failed to|cannot |Error:" /tmp/failed_build.log | tail -20
+
+# Infrastructure issues
+grep -E "timeout|timed out|Connection refused|503|500|temporarily unavailable" /tmp/failed_build.log
+
+# Stage failures
+grep -E "FAILED|UNSTABLE" /tmp/failed_build.log
 ```
 
-This returns a structured summary of all failed kola tests:
+**Common failure patterns:**
+- `ERROR:` or `FATAL:` messages → Build/compose error
+- Timeout errors → Infrastructure or resource issue
+- Network/connectivity issues → Transient failure, retry
+- `Permission denied` → SELinux or config issue
+- `No space left on device` → Disk exhaustion
 
-```json
-{
-  "build": {"job": "build", "number": 3463, "stream": "rhel-9.6"},
-  "failures": [
-    {
-      "name": "ext.config.shared.multipath.custom-partition",
-      "error": "machine entered emergency.target in initramfs",
-      "duration_seconds": 15.92,
-      "attempts": 2,
-      "rerun_failed": true
-    }
-  ]
-}
-```
-
-Fields:
-- `name`: Test name
-- `error`: Error message from the test
-- `duration_seconds`: How long the test ran
-- `attempts`: Number of times the test was run (1 = no rerun, 2 = rerun attempted)
-- `rerun_failed`: true if the test also failed on rerun, false if it passed on rerun (flaky)
-
-**For other failures, look for common patterns:**
-- `ERROR:` or `FATAL:` messages
-- Stack traces and exceptions
-- Timeout errors
-- Network/connectivity issues
-- Resource exhaustion (disk, memory)
-- Permission denied errors
-- Missing dependencies
-
-For manual log inspection:
-```bash
-grep -E "FAIL:|failed:|ERROR:" /tmp/failed_build.log | tail -20
-```
-
-### Step 8: Generate Summary
+### Step 9: Generate Summary
 
 Create a summary report with:
 
@@ -267,7 +244,7 @@ Create a summary report with:
    - Links to relevant PRs/issues
    - Workarounds if available
 
-### Step 9: Create JIRA Sub-tasks (Optional)
+### Step 10: Create JIRA Sub-tasks (Optional)
 
 When requested, create JIRA sub-tasks under the current week's Pipeline Monitoring task to track failures.
 
@@ -306,7 +283,7 @@ To add comments to existing issues:
 jira issue comment add <ISSUE-KEY> "<comment-text>" --no-input
 ```
 
-### Step 10: Trigger Build Retries (Optional)
+### Step 11: Trigger Build Retries (Optional)
 
 When requested, trigger a retry for a failed build, IMPORTANT, make sure to check if a build is already running before doing a retry.
 
