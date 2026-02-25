@@ -389,6 +389,86 @@ func (c *Client) GetKolaFailures(jobName string, buildNumber int) (*KolaFailureS
 	}, nil
 }
 
+// GetUpgrades extracts the "Upgraded:" section from a build's console log.
+// Returns raw lines showing package upgrades in the format: "pkg old -> new"
+func (c *Client) GetUpgrades(jobName string, buildNumber int) ([]string, error) {
+	log, err := c.GetBuildLog(jobName, buildNumber)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get build log: %w", err)
+	}
+
+	var upgrades []string
+	lines := strings.Split(log, "\n")
+	inUpgradedSection := false
+
+	// Pattern for upgrade lines: "  <pkg> <old-version> -> <new-version>"
+	// May have timestamp prefix like [2026-02-25T09:37:02.360Z]
+	upgradePattern := regexp.MustCompile(`^\s*(?:\[[^\]]+\])?\s{2,}(\S+)\s+(\S+)\s+->\s+(\S+)\s*$`)
+
+	for _, line := range lines {
+		// Check for start of Upgraded section
+		if strings.Contains(line, "Upgraded:") {
+			inUpgradedSection = true
+			continue
+		}
+
+		if inUpgradedSection {
+			// Check if this line matches upgrade pattern
+			if matches := upgradePattern.FindStringSubmatch(line); len(matches) > 3 {
+				// Format: "pkg old -> new"
+				upgrades = append(upgrades, fmt.Sprintf("%s %s -> %s", matches[1], matches[2], matches[3]))
+			} else if strings.TrimSpace(line) != "" && !strings.HasPrefix(strings.TrimSpace(line), "[") {
+				// Non-empty, non-timestamp line that doesn't match - end of section
+				// But continue looking for more Upgraded sections
+				inUpgradedSection = false
+			}
+		}
+	}
+
+	return upgrades, nil
+}
+
+// GetInstalledPackages extracts the "Installing X packages:" section from a build's console log.
+// Returns raw lines showing installed packages in the format: "name-version.arch (repo)"
+func (c *Client) GetInstalledPackages(jobName string, buildNumber int) ([]string, error) {
+	log, err := c.GetBuildLog(jobName, buildNumber)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get build log: %w", err)
+	}
+
+	var packages []string
+	lines := strings.Split(log, "\n")
+	inPackagesSection := false
+
+	// Pattern for "Installing X packages:" header
+	headerPattern := regexp.MustCompile(`Installing \d+ packages:`)
+	// Pattern for package lines: "  <name-version.arch> (<repo>)"
+	// May have timestamp prefix like [2026-02-25T09:32:29.156Z]
+	packagePattern := regexp.MustCompile(`^\s*(?:\[[^\]]+\])?\s{2,}(\S+)\s+\(([^)]+)\)\s*$`)
+
+	for _, line := range lines {
+		// Check for start of Installing packages section
+		if headerPattern.MatchString(line) {
+			inPackagesSection = true
+			packages = nil // Reset - use the last occurrence (actual compose, not download-only)
+			continue
+		}
+
+		if inPackagesSection {
+			// Check if this line matches package pattern
+			if matches := packagePattern.FindStringSubmatch(line); len(matches) > 2 {
+				// Format: "name-version.arch (repo)"
+				packages = append(packages, fmt.Sprintf("%s (%s)", matches[1], matches[2]))
+			} else if strings.TrimSpace(line) != "" && !strings.HasPrefix(strings.TrimSpace(line), "[") {
+				// Non-empty, non-timestamp line that doesn't match - end of section
+				inPackagesSection = false
+			}
+		}
+	}
+
+	return packages, nil
+}
+
 // GetBuildArtifacts returns the artifacts for a build.
 func (c *Client) GetBuildArtifacts(jobName string, buildNumber int) ([]Artifact, error) {
 	build, err := c.GetBuildInfo(jobName, buildNumber)

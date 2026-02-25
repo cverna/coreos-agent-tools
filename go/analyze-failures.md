@@ -110,7 +110,43 @@ coreos-tools jenkins builds log <job-name> <good-build-number> | jq -r '.console
 
 Extract and compare key component versions between builds.
 
-**Option A**: Extract from logs:
+**Option A (Recommended)**: Use the `diff` command to show package changes:
+
+```bash
+# Show what packages were upgraded in the failed build
+coreos-tools jenkins builds diff <job-name> <failed-build-number>
+
+# Compare full package lists between good and failed builds
+coreos-tools jenkins builds diff <job-name> <good-build-number> <failed-build-number>
+```
+
+The single-build mode shows the "Upgraded:" section from the build log:
+```json
+{
+  "build": 3463,
+  "stream": "rhel-9.6",
+  "mode": "upgrades",
+  "upgrades": [
+    "kernel 5.14.0-570.93.1.el9_6 -> 5.14.0-570.94.1.el9_6",
+    "ignition 2.21.0-6.el9_6 -> 2.21.0-6.rhaos4.19.el9"
+  ]
+}
+```
+
+The two-build mode returns both package lists for comparison:
+```json
+{
+  "build1": 3399,
+  "build2": 3463,
+  "mode": "packages",
+  "build1_packages": ["pkg-1.0.0.x86_64 (repo)", ...],
+  "build2_packages": ["pkg-1.1.0.x86_64 (repo)", ...]
+}
+```
+
+You can use `jq` or `diff` to compare the package lists as needed.
+
+**Option B**: Extract from logs manually:
 
 ```bash
 # coreos-assembler version
@@ -347,6 +383,12 @@ coreos-tools jenkins builds list <job-name> --stream rhel-9.6 --status FAILURE -
 
 # Get kola test failure summary (no artifact download needed)
 coreos-tools jenkins builds kola-failures <job-name> <build-number>
+
+# Show package upgrades in a build
+coreos-tools jenkins builds diff <job-name> <build-number>
+
+# Compare package lists between two builds
+coreos-tools jenkins builds diff <job-name> <build1> <build2>
 
 # Backwards compatible failures command
 coreos-tools jenkins failures <job-name> -n 5

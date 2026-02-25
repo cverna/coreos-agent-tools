@@ -288,3 +288,14 @@ type KolaFailedTest struct {
 	Attempts        int     `json:"attempts"`
 	RerunFailed     bool    `json:"rerun_failed"`
 }
+
+// PackageDiffResult contains package information from builds for comparison.
+type PackageDiffResult struct {
+	Build1         int      `json:"build1"`
+	Build2         int      `json:"build2,omitempty"`
+	Stream         string   `json:"stream,omitempty"`
+	Mode           string   `json:"mode"`                      // "upgrades" or "packages"
+	Upgrades       []string `json:"upgrades,omitempty"`        // single-build: raw lines from "Upgraded:" section
+	Build1Packages []string `json:"build1_packages,omitempty"` // two-build: full package list
+	Build2Packages []string `json:"build2_packages,omitempty"` // two-build: full package list
+}

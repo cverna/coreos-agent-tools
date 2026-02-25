@@ -264,6 +264,94 @@ var buildsKolaFailuresCmd = &cobra.Command{
 	},
 }
 
+// builds diff
+var buildsDiffCmd = &cobra.Command{
+	Use:   "diff <job-name> <build> [build2]",
+	Short: "Show package changes in builds",
+	Long: `Show package changes in builds.
+
+With one build: shows the "Upgraded:" section (packages that changed in that build).
+With two builds: shows the full package list from both builds for comparison.
+
+Examples:
+  # Show what packages were upgraded in build 3463
+  coreos-tools jenkins builds diff build 3463
+
+  # Compare package lists between two builds
+  coreos-tools jenkins builds diff build 3399 3463`,
+	Args: cobra.RangeArgs(2, 3),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		jobName := args[0]
+		var build1 int
+		if _, err := fmt.Sscanf(args[1], "%d", &build1); err != nil {
+			return fmt.Errorf("invalid build number: %s", args[1])
+		}
+
+		// Get build info for stream
+		buildInfo, err := jenkinsClient.GetBuildInfo(jobName, build1)
+		if err != nil {
+			printError(err)
+			return err
+		}
+		stream := ""
+		for _, action := range buildInfo.Actions {
+			for _, param := range action.Parameters {
+				if param.Name == "STREAM" {
+					if s, ok := param.Value.(string); ok {
+						stream = s
+					}
+				}
+			}
+		}
+
+		// Single build mode: show upgrades
+		if len(args) == 2 {
+			upgrades, err := jenkinsClient.GetUpgrades(jobName, build1)
+			if err != nil {
+				printError(err)
+				return err
+			}
+
+			result := map[string]interface{}{
+				"build":    build1,
+				"stream":   stream,
+				"mode":     "upgrades",
+				"upgrades": upgrades,
+			}
+			return printJSON(result)
+		}
+
+		// Two build mode: compare package lists
+		var build2 int
+		if _, err := fmt.Sscanf(args[2], "%d", &build2); err != nil {
+			return fmt.Errorf("invalid build number: %s", args[2])
+		}
+
+		// Fetch package lists for both builds
+		pkgs1, err := jenkinsClient.GetInstalledPackages(jobName, build1)
+		if err != nil {
+			printError(err)
+			return err
+		}
+
+		pkgs2, err := jenkinsClient.GetInstalledPackages(jobName, build2)
+		if err != nil {
+			printError(err)
+			return err
+		}
+
+		result := map[string]interface{}{
+			"build1":          build1,
+			"build2":          build2,
+			"stream":          stream,
+			"mode":            "packages",
+			"build1_packages": pkgs1,
+			"build2_packages": pkgs2,
+		}
+		return printJSON(result)
+	},
+}
+
 func init() {
 	// builds list flags
 	buildsListCmd.Flags().IntVarP(&buildsListLimit, "last", "n", 10, "Number of builds to show")
@@ -285,6 +373,7 @@ func init() {
 	jenkinsBuildsCmd.AddCommand(buildsLogCmd)
 	jenkinsBuildsCmd.AddCommand(buildsArtifactsCmd)
 	jenkinsBuildsCmd.AddCommand(buildsKolaFailuresCmd)
+	jenkinsBuildsCmd.AddCommand(buildsDiffCmd)
 
 	// Suppress usage on errors
 	buildsListCmd.SilenceUsage = true
@@ -292,4 +381,5 @@ func init() {
 	buildsLogCmd.SilenceUsage = true
 	buildsArtifactsCmd.SilenceUsage = true
 	buildsKolaFailuresCmd.SilenceUsage = true
+	buildsDiffCmd.SilenceUsage = true
 }
