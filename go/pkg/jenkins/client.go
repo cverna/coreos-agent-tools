@@ -554,9 +554,10 @@ func (c *Client) ComputePackageDiff(jobName string, build1, build2 int) (*Comput
 		map2[name] = pkg
 	}
 
-	var added []string
-	var removed []string
-	var changed []PackageChange
+	// Initialize as empty slices (not nil) so JSON output shows [] instead of null
+	added := []string{}
+	removed := []string{}
+	changed := []PackageChange{}
 
 	// Find added and changed packages (in build2)
 	for name, pkg2 := range map2 {
