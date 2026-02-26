@@ -118,36 +118,41 @@ coreos-tools jenkins builds info <job-name> <good-build-number>
 
 Compare packages between the last known good build and the failed build to identify what changed.
 
-**Compare full package lists:**
+**Compare packages between builds:**
 
 ```bash
 coreos-tools jenkins builds diff <job-name> <good-build-number> <failed-build-number>
 ```
 
-This returns both package lists in JSON format:
+This returns a computed diff showing added, removed, and changed packages:
 ```json
 {
   "build1": 3399,
   "build2": 3463,
-  "mode": "packages",
-  "build1_packages": ["pkg-1.0.0.x86_64 (repo)", ...],
-  "build2_packages": ["pkg-1.1.0.x86_64 (repo)", ...]
+  "stream": "rhel-9.6",
+  "added": ["new-package-1.0.0.x86_64 (rhel-9.6-baseos)", ...],
+  "removed": ["old-package-2.0.0.x86_64 (rhel-9.4-appstream)", ...],
+  "changed": [
+    {
+      "name": "kernel",
+      "build1": "kernel-5.14.0-427.112.1.el9_4.x86_64 (rhel-9.4-server-ose-4.17)",
+      "build2": "kernel-5.14.0-570.94.1.el9_6.x86_64 (rhel-9.6-early-kernel)"
+    }
+  ]
 }
 ```
 
 **Analyze the diff with jq:**
 
 ```bash
-# Save output for analysis
-coreos-tools jenkins builds diff <job-name> <good-build> <failed-build> > /tmp/builds_diff.json
+# List all changed package names
+coreos-tools jenkins builds diff <job-name> <good-build> <failed-build> | jq -r '.changed[].name'
 
-# Find packages only in failed build (added/upgraded)
-jq -r '.build1_packages[] | split(" ")[0]' /tmp/builds_diff.json | sort > /tmp/pkgs1.txt
-jq -r '.build2_packages[] | split(" ")[0]' /tmp/builds_diff.json | sort > /tmp/pkgs2.txt
-comm -13 /tmp/pkgs1.txt /tmp/pkgs2.txt
+# Show kernel changes specifically
+coreos-tools jenkins builds diff <job-name> <good-build> <failed-build> | jq '.changed[] | select(.name == "kernel")'
 
-# Find packages only in good build (removed/downgraded)
-comm -23 /tmp/pkgs1.txt /tmp/pkgs2.txt
+# Count changes
+coreos-tools jenkins builds diff <job-name> <good-build> <failed-build> | jq '{added: (.added | length), removed: (.removed | length), changed: (.changed | length)}'
 ```
 
 **Option B (Manual)**: If you need to compare coreos-assembler versions or other artifacts:
@@ -364,7 +369,7 @@ coreos-tools jenkins builds kola-failures <job-name> <build-number>
 # Show package upgrades in a build
 coreos-tools jenkins builds diff <job-name> <build-number>
 
-# Compare package lists between two builds
+# Compare packages between two builds (shows added/removed/changed)
 coreos-tools jenkins builds diff <job-name> <build1> <build2>
 
 # Backwards compatible failures command

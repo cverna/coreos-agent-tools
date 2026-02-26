@@ -271,13 +271,13 @@ var buildsDiffCmd = &cobra.Command{
 	Long: `Show package changes in builds.
 
 With one build: shows the "Upgraded:" section (packages that changed in that build).
-With two builds: shows the full package list from both builds for comparison.
+With two builds: computes and shows the differences (added, removed, changed packages).
 
 Examples:
   # Show what packages were upgraded in build 3463
   coreos-tools jenkins builds diff build 3463
 
-  # Compare package lists between two builds
+  # Compare packages between two builds (shows added, removed, changed)
   coreos-tools jenkins builds diff build 3399 3463`,
 	Args: cobra.RangeArgs(2, 3),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -287,25 +287,25 @@ Examples:
 			return fmt.Errorf("invalid build number: %s", args[1])
 		}
 
-		// Get build info for stream
-		buildInfo, err := jenkinsClient.GetBuildInfo(jobName, build1)
-		if err != nil {
-			printError(err)
-			return err
-		}
-		stream := ""
-		for _, action := range buildInfo.Actions {
-			for _, param := range action.Parameters {
-				if param.Name == "STREAM" {
-					if s, ok := param.Value.(string); ok {
-						stream = s
+		// Single build mode: show upgrades
+		if len(args) == 2 {
+			// Get build info for stream
+			buildInfo, err := jenkinsClient.GetBuildInfo(jobName, build1)
+			if err != nil {
+				printError(err)
+				return err
+			}
+			stream := ""
+			for _, action := range buildInfo.Actions {
+				for _, param := range action.Parameters {
+					if param.Name == "STREAM" {
+						if s, ok := param.Value.(string); ok {
+							stream = s
+						}
 					}
 				}
 			}
-		}
 
-		// Single build mode: show upgrades
-		if len(args) == 2 {
 			upgrades, err := jenkinsClient.GetUpgrades(jobName, build1)
 			if err != nil {
 				printError(err)
@@ -321,34 +321,19 @@ Examples:
 			return printJSON(result)
 		}
 
-		// Two build mode: compare package lists
+		// Two build mode: compute package diff
 		var build2 int
 		if _, err := fmt.Sscanf(args[2], "%d", &build2); err != nil {
 			return fmt.Errorf("invalid build number: %s", args[2])
 		}
 
-		// Fetch package lists for both builds
-		pkgs1, err := jenkinsClient.GetInstalledPackages(jobName, build1)
+		diff, err := jenkinsClient.ComputePackageDiff(jobName, build1, build2)
 		if err != nil {
 			printError(err)
 			return err
 		}
 
-		pkgs2, err := jenkinsClient.GetInstalledPackages(jobName, build2)
-		if err != nil {
-			printError(err)
-			return err
-		}
-
-		result := map[string]interface{}{
-			"build1":          build1,
-			"build2":          build2,
-			"stream":          stream,
-			"mode":            "packages",
-			"build1_packages": pkgs1,
-			"build2_packages": pkgs2,
-		}
-		return printJSON(result)
+		return printJSON(diff)
 	},
 }
 

@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -467,6 +468,135 @@ func (c *Client) GetInstalledPackages(jobName string, buildNumber int) ([]string
 	}
 
 	return packages, nil
+}
+
+// parsePackageName extracts the package name from a NEVRA string, ignoring architecture.
+// Input: "NetworkManager-1:1.46.0-35.el9_4.x86_64 (rhel-9.4-baseos)"
+// Output: "NetworkManager"
+func parsePackageName(pkg string) string {
+	// Remove (repo) suffix if present
+	if idx := strings.Index(pkg, " ("); idx != -1 {
+		pkg = pkg[:idx]
+	}
+
+	// Remove architecture suffix (.x86_64, .noarch, .aarch64, .i686, .src)
+	archSuffixes := []string{".x86_64", ".noarch", ".aarch64", ".i686", ".src", ".ppc64le", ".s390x"}
+	for _, suffix := range archSuffixes {
+		if strings.HasSuffix(pkg, suffix) {
+			pkg = pkg[:len(pkg)-len(suffix)]
+			break
+		}
+	}
+
+	// Now we have: name-[epoch:]version-release
+	// Split by '-' and work backwards to find where version starts
+	// Version segment starts with a digit or epoch (N:)
+	parts := strings.Split(pkg, "-")
+	if len(parts) < 2 {
+		return pkg
+	}
+
+	// Find the first part (from the end) that looks like a version
+	// Version starts with digit or epoch pattern (digit followed by colon)
+	versionIdx := -1
+	for i := len(parts) - 1; i >= 0; i-- {
+		part := parts[i]
+		if len(part) > 0 {
+			// Check if starts with digit (version) or epoch pattern (N:)
+			if part[0] >= '0' && part[0] <= '9' {
+				versionIdx = i
+			} else if len(part) > 2 && part[0] >= '0' && part[0] <= '9' && strings.Contains(part, ":") {
+				// Epoch pattern like "1:1.46.0"
+				versionIdx = i
+			}
+		}
+	}
+
+	if versionIdx <= 0 {
+		// Couldn't find version, return as-is
+		return pkg
+	}
+
+	// Package name is everything before the version
+	return strings.Join(parts[:versionIdx], "-")
+}
+
+// ComputePackageDiff computes the differences between two builds' package lists.
+func (c *Client) ComputePackageDiff(jobName string, build1, build2 int) (*ComputedPackageDiff, error) {
+	// Fetch package lists for both builds
+	pkgs1, err := c.GetInstalledPackages(jobName, build1)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get packages for build %d: %w", build1, err)
+	}
+
+	pkgs2, err := c.GetInstalledPackages(jobName, build2)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get packages for build %d: %w", build2, err)
+	}
+
+	// Get stream from build2
+	buildInfo, err := c.GetBuildInfo(jobName, build2)
+	stream := ""
+	if err == nil {
+		stream = extractParamFromActions(buildInfo.Actions, "STREAM")
+	}
+
+	// Build maps: package_name -> full_package_string
+	map1 := make(map[string]string)
+	for _, pkg := range pkgs1 {
+		name := parsePackageName(pkg)
+		map1[name] = pkg
+	}
+
+	map2 := make(map[string]string)
+	for _, pkg := range pkgs2 {
+		name := parsePackageName(pkg)
+		map2[name] = pkg
+	}
+
+	var added []string
+	var removed []string
+	var changed []PackageChange
+
+	// Find added and changed packages (in build2)
+	for name, pkg2 := range map2 {
+		if pkg1, exists := map1[name]; exists {
+			// Package exists in both - check if changed
+			if pkg1 != pkg2 {
+				changed = append(changed, PackageChange{
+					Name:   name,
+					Build1: pkg1,
+					Build2: pkg2,
+				})
+			}
+		} else {
+			// Package only in build2 - added
+			added = append(added, pkg2)
+		}
+	}
+
+	// Find removed packages (in build1 but not in build2)
+	for name, pkg1 := range map1 {
+		if _, exists := map2[name]; !exists {
+			removed = append(removed, pkg1)
+		}
+	}
+
+	// Sort for consistent output
+	sort.Strings(added)
+	sort.Strings(removed)
+	sort.Slice(changed, func(i, j int) bool {
+		return changed[i].Name < changed[j].Name
+	})
+
+	return &ComputedPackageDiff{
+		Build1:  build1,
+		Build2:  build2,
+		Stream:  stream,
+		Added:   added,
+		Removed: removed,
+		Changed: changed,
+	}, nil
 }
 
 // GetBuildArtifacts returns the artifacts for a build.

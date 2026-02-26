@@ -290,12 +290,27 @@ type KolaFailedTest struct {
 }
 
 // PackageDiffResult contains package information from builds for comparison.
+// Used for single-build mode (showing upgrades).
 type PackageDiffResult struct {
-	Build1         int      `json:"build1"`
-	Build2         int      `json:"build2,omitempty"`
-	Stream         string   `json:"stream,omitempty"`
-	Mode           string   `json:"mode"`                      // "upgrades" or "packages"
-	Upgrades       []string `json:"upgrades,omitempty"`        // single-build: raw lines from "Upgraded:" section
-	Build1Packages []string `json:"build1_packages,omitempty"` // two-build: full package list
-	Build2Packages []string `json:"build2_packages,omitempty"` // two-build: full package list
+	Build    int      `json:"build"`
+	Stream   string   `json:"stream,omitempty"`
+	Mode     string   `json:"mode"`               // "upgrades"
+	Upgrades []string `json:"upgrades,omitempty"` // raw lines from "Upgraded:" section
+}
+
+// PackageChange represents a package that changed versions between builds.
+type PackageChange struct {
+	Name   string `json:"name"`
+	Build1 string `json:"build1"`
+	Build2 string `json:"build2"`
+}
+
+// ComputedPackageDiff contains the computed differences between two builds.
+type ComputedPackageDiff struct {
+	Build1  int             `json:"build1"`
+	Build2  int             `json:"build2"`
+	Stream  string          `json:"stream,omitempty"`
+	Added   []string        `json:"added"`
+	Removed []string        `json:"removed"`
+	Changed []PackageChange `json:"changed"`
 }
