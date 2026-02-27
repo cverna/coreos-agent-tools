@@ -376,17 +376,35 @@ coreos-tools jenkins builds diff <job-name> <build1> <build2>
 coreos-tools jenkins failures <job-name> -n 5
 ```
 
-## Build Output Fields
-
-The `builds list` command returns the following fields:
-
-| Field | Description |
-|-------|-------------|
-| `number` | Build number |
-| `url` | Jenkins build URL |
-| `result` | Build status (SUCCESS, FAILURE, ABORTED, UNSTABLE) |
-| `building` | Whether the build is currently running |
-| `duration` | Build duration in milliseconds |
-| `timestamp` | Build start time |
-| `stream` | Stream name from STREAM parameter (e.g., rhel-9.6, 4.17-9.4) |
-| `description` | Build description (e.g., `[rhel-9.6][x86_64] ⚡ 9.6.20260225-0`) |
+Using Brew Web to Find Package Information
+Brew (Red Hat's internal Koji instance) is used to track package builds. Access it at: https://brewweb.engineering.redhat.com/brew/
+1. Finding a Package
+Direct URL (if you know the package ID):
+https://brewweb.engineering.redhat.com/brew/packageinfo?packageID=<ID>
+Search by name:
+https://brewweb.engineering.redhat.com/brew/search?match=glob&type=package&terms=<package-name>
+Example:
+https://brewweb.engineering.redhat.com/brew/search?match=glob&type=package&terms=conmon-rs
+2. Understanding the Package Info Page
+The package info page shows three key sections:
+Builds Table
+| Column | Description |
+|--------|-------------|
+| NVR | Name-Version-Release (e.g., conmon-rs-0.6.6-0.rhaos4.18.el10.1) |
+| Built by | User/bot that triggered the build |
+| Finished | Build completion timestamp |
+| State | Build status (complete, failed, etc.) |
+NVR Naming Convention:
+<package>-<version>-<release>.<ocp-version>.<rhel-version>
+3. Common Searches
+Find all builds for a package:
+https://brewweb.engineering.redhat.com/brew/packageinfo?packageID=<ID>
+Search for builds by NVR pattern:
+https://brewweb.engineering.redhat.com/brew/search?match=glob&type=build&terms=conmon-rs*el10*
+Find builds in a specific tag:
+https://brewweb.engineering.redhat.com/brew/taginfo?tagID=<tag-id>
+4. Checking if a Package is Available for a Stream
+To verify a package is available for a specific OCP/RHEL combination:
+1. Go to the package info page
+2. Check the Builds table for a build matching your target (e.g., el10 for RHEL 10)
+3. Check the Tags table for the appropriate tag (e.g., rhaos-4.22-rhel-10)
