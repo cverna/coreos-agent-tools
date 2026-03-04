@@ -10,6 +10,7 @@ import (
 )
 
 var jenkinsClient *jenkins.Client
+var jenkinsProfile string
 
 var jenkinsCmd = &cobra.Command{
 	Use:   "jenkins",
@@ -21,8 +22,13 @@ var jenkinsCmd = &cobra.Command{
 			parent.PersistentPreRun(parent, args)
 		}
 
-		// Initialize Jenkins client
-		cfg, err := config.GetJenkinsConfig()
+		// Skip client initialization for profiles subcommand
+		if cmd.Name() == "profiles" || (cmd.Parent() != nil && cmd.Parent().Name() == "profiles") {
+			return nil
+		}
+
+		// Initialize Jenkins client with profile support
+		cfg, err := config.GetJenkinsConfigWithProfile(jenkinsProfile)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "Error:", err)
 			return err
@@ -55,6 +61,10 @@ var jenkinsQueueCmd = &cobra.Command{
 }
 
 func init() {
+	// Add profile flag to jenkins command
+	jenkinsCmd.PersistentFlags().StringVarP(&jenkinsProfile, "profile", "p", "",
+		"Jenkins profile to use (default: from JENKINS_PROFILE env or config)")
+
 	// Add jenkins command to root
 	rootCmd.AddCommand(jenkinsCmd)
 

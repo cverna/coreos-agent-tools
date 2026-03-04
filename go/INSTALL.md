@@ -33,25 +33,47 @@ go install github.com/ankitpokhrel/jira-cli/cmd/jira@latest
 
 ### Jenkins Credentials
 
-Create the config directory and `.env` file:
+Create a Jenkins profile using the built-in command:
 
 ```bash
-mkdir -p ~/.config/coreos-tools
-cat > ~/.config/coreos-tools/.env << 'EOF'
-JENKINS_URL=https://jenkins-rhcos--prod-pipeline.apps.int.prod-stable-spoke1-dc-iad2.itup.redhat.com/
-JENKINS_USER=your-username
-JENKINS_API_TOKEN=your-api-token
-EOF
+coreos-tools jenkins profiles create prod \
+  --url https://jenkins-rhcos--prod-pipeline.apps.int.prod-stable-spoke1-dc-iad2.itup.redhat.com/ \
+  --user your-username \
+  --default
 ```
 
-The tool searches for `.env` in this order:
-1. `~/.config/coreos-tools/.env` (recommended)
-2. Current directory or parent directories
+When prompted, enter your Jenkins API token.
 
 To get a Jenkins API token:
 1. Log into Jenkins
 2. Click your username → Configure
 3. Add new API Token
+
+#### Multiple Jenkins Instances
+
+You can create profiles for multiple Jenkins instances:
+
+```bash
+# Create additional profiles
+coreos-tools jenkins profiles create stage \
+  --url https://jenkins-stage.example.com/ \
+  --user your-username
+
+# List all profiles
+coreos-tools jenkins profiles list
+
+# Use a specific profile
+coreos-tools jenkins jobs list --profile stage
+
+# Or set via environment variable
+JENKINS_PROFILE=stage coreos-tools jenkins jobs list
+```
+
+Profile priority (highest to lowest):
+1. `--profile` flag
+2. `JENKINS_PROFILE` environment variable
+3. Default profile (set with `--default` flag during creation)
+4. Legacy `~/.config/coreos-tools/.env` file
 
 ### GitHub CLI Authentication
 
