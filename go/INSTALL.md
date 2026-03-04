@@ -13,7 +13,7 @@ sudo dnf install -y jq gh
 ### 2. Install coreos-tools
 
 ```bash
-go install github.com/coreos/coreos-tools@latest
+go install github.com/cverna/coreos-agent-tools/cmd/coreos-tools@latest
 ```
 
 Ensure `~/go/bin` is in your PATH:
