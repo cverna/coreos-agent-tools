@@ -8,7 +8,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/cverna/coreos-agent-tools/pkg/config"
+	"github.com/cverna/coreos-agent-tools/go/pkg/config"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )

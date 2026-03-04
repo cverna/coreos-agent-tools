@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/cverna/coreos-agent-tools/pkg/config"
-	"github.com/cverna/coreos-agent-tools/pkg/jenkins"
+	"github.com/cverna/coreos-agent-tools/go/pkg/config"
+	"github.com/cverna/coreos-agent-tools/go/pkg/jenkins"
 	"github.com/spf13/cobra"
 )
 

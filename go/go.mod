@@ -1,4 +1,4 @@
-module github.com/cverna/coreos-agent-tools
+module github.com/cverna/coreos-agent-tools/go
 
 go 1.24.0
 

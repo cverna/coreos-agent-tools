@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cverna/coreos-agent-tools/pkg/httpclient"
+	"github.com/cverna/coreos-agent-tools/go/pkg/httpclient"
 )
 
 const (

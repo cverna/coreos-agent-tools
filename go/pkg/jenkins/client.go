@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cverna/coreos-agent-tools/pkg/httpclient"
+	"github.com/cverna/coreos-agent-tools/go/pkg/httpclient"
 )
 
 // Client is a Jenkins API client.

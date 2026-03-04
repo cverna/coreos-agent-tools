@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/cverna/coreos-agent-tools/pkg/ocp"
+	"github.com/cverna/coreos-agent-tools/go/pkg/ocp"
 	"github.com/spf13/cobra"
 )
 
