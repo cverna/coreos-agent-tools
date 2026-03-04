@@ -95,6 +95,28 @@ coreos-tools jenkins jobs list
 
 ## Usage
 
+### Install the Slash Command
+
+Download the `analyze-failures.md` prompt to your commands directory:
+
+**For Claude Code:**
+
+```bash
+mkdir -p ~/.claude/commands
+curl -fsSL https://raw.githubusercontent.com/cverna/coreos-agent-tools/main/go/analyze-failures.md \
+  -o ~/.claude/commands/analyze-failures.md
+```
+
+**For OpenCode:**
+
+```bash
+mkdir -p ~/.config/opencode/commands
+curl -fsSL https://raw.githubusercontent.com/cverna/coreos-agent-tools/main/go/analyze-failures.md \
+  -o ~/.config/opencode/commands/analyze-failures.md
+```
+
+### Run the Command
+
 ```bash
 # Analyze failures interactively
 /analyze-failures
