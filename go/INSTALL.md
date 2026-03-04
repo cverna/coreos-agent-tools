@@ -36,7 +36,7 @@ go install github.com/ankitpokhrel/jira-cli/cmd/jira@latest
 Create a `.env` file in your working directory:
 
 ```bash
-JENKINS_URL=https://your-jenkins-server.example.com
+JENKINS_URL=https://jenkins-rhcos--prod-pipeline.apps.int.prod-stable-spoke1-dc-iad2.itup.redhat.com/
 JENKINS_USER=your-username
 JENKINS_API_TOKEN=your-api-token
 ```
