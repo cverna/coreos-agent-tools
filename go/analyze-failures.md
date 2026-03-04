@@ -84,15 +84,48 @@ Immediately run a quick triage to determine the failure type before fetching lar
 coreos-tools jenkins builds kola-failures <job-name> <build-number>
 ```
 
+**IMPORTANT: Check if failures passed on rerun:**
+
+The `kola-failures` output includes a `rerun_failed` field for each test:
+- `"rerun_failed": true` → Test failed on rerun, this is likely the root cause
+- `"rerun_failed": false` → Test **passed on rerun**, this is a flaky test but NOT the root cause
+
+**Example output:**
+```json
+{
+  "failures": [
+    {
+      "name": "ext.config.shared.selinux.file-context-policy-match",
+      "error": "kolet failed: Process exited with status 1",
+      "rerun_failed": false
+    }
+  ]
+}
+```
+
+In the example above, `rerun_failed: false` means the test passed on rerun and is NOT the root cause of the build failure.
+
+**Filter for actual failures (tests that failed on rerun):**
+
+```bash
+coreos-tools jenkins builds kola-failures <job-name> <build-number> | jq '[.failures[] | select(.rerun_failed == true)]'
+```
+
 **Check what packages changed in this build:**
 
 ```bash
 coreos-tools jenkins builds diff <job-name> <build-number>
 ```
 
-**Decision:**
-- **Test failures found** → Proceed to Step 4 (Find Last Known Good Build) then Step 5 (Compare Packages) to identify which package change caused the regression
-- **No test failures** → Skip to Step 6 (Fetch Logs) to investigate build/infrastructure failure
+**Decision tree:**
+
+1. **Test failures with `rerun_failed: true`** → These tests consistently fail. Proceed to Step 4 (Find Last Known Good Build) then Step 5 (Compare Packages) to identify which package change caused the regression.
+
+2. **Test failures with `rerun_failed: false` only** → These are flaky tests that passed on rerun. They are NOT the root cause of the build failure. **You MUST continue to Step 6 (Fetch Logs)** to find what actually failed the build (e.g., compose failure, infrastructure error, extensions-container build failure).
+
+3. **No test failures** → Skip to Step 6 (Fetch Logs) to investigate build/infrastructure failure.
+
+**Note on flaky tests:** Even if a test passed on rerun, it's still worth documenting the flakiness for tracking purposes. However, do not assume it caused the build failure - look for other errors in the logs.
 
 ### Step 4: Find Last Known Good Build
 
