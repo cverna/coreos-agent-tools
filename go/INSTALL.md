@@ -33,13 +33,20 @@ go install github.com/ankitpokhrel/jira-cli/cmd/jira@latest
 
 ### Jenkins Credentials
 
-Create a `.env` file in your working directory:
+Create the config directory and `.env` file:
 
 ```bash
+mkdir -p ~/.config/coreos-tools
+cat > ~/.config/coreos-tools/.env << 'EOF'
 JENKINS_URL=https://jenkins-rhcos--prod-pipeline.apps.int.prod-stable-spoke1-dc-iad2.itup.redhat.com/
 JENKINS_USER=your-username
 JENKINS_API_TOKEN=your-api-token
+EOF
 ```
+
+The tool searches for `.env` in this order:
+1. `~/.config/coreos-tools/.env` (recommended)
+2. Current directory or parent directories
 
 To get a Jenkins API token:
 1. Log into Jenkins

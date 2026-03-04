@@ -22,10 +22,33 @@ type JiraConfig struct {
 	BaseURL  string
 }
 
+// getConfigDir returns the XDG config directory for coreos-tools.
+// It respects $XDG_CONFIG_HOME, falling back to ~/.config/coreos-tools.
+func getConfigDir() string {
+	if xdgConfig := os.Getenv("XDG_CONFIG_HOME"); xdgConfig != "" {
+		return filepath.Join(xdgConfig, "coreos-tools")
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".config", "coreos-tools")
+}
+
 // LoadEnv loads environment variables from .env file.
-// It searches in the current directory and parent directories.
+// It searches in the following order:
+// 1. XDG config directory (~/.config/coreos-tools/.env)
+// 2. Current directory and parent directories
 func LoadEnv() error {
-	// Try to find .env file in current or parent directories
+	// First, try XDG config directory
+	if configDir := getConfigDir(); configDir != "" {
+		envPath := filepath.Join(configDir, ".env")
+		if _, err := os.Stat(envPath); err == nil {
+			return godotenv.Load(envPath)
+		}
+	}
+
+	// Fall back to current or parent directories
 	dir, err := os.Getwd()
 	if err != nil {
 		return nil // Ignore error, rely on environment variables
