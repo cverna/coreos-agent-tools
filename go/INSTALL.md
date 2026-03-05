@@ -5,6 +5,7 @@ Quick setup guide for using the CoreOS Agent Tools container with OpenCode.
 ## Prerequisites
 
 - Podman or Docker installed
+- Google Cloud SDK configured (optional, for access to additional AI models)
 
 ## Pull the Container
 
@@ -80,6 +81,7 @@ exit
 ```bash
 podman run -it --rm \
   -v coreos-agent-config:/home/agent/.config \
+  -v ~/.config/gcloud:/home/agent/.config/gcloud:ro \
   -v $(pwd):/workspace \
   -e JIRA_API_TOKEN="your-token" \
   ghcr.io/cverna/coreos-agent-tools/coreos-agent:latest
@@ -87,9 +89,11 @@ podman run -it --rm \
 
 The `/analyze-failures` slash command is pre-installed and can create Jira sub-tasks.
 
-### Run Without Jira
+The gcloud mount provides access to additional AI models (e.g., Vertex AI) in OpenCode.
 
-If you don't need Jira integration:
+### Run Without Jira or gcloud
+
+If you don't need Jira integration or additional models:
 
 ```bash
 podman run -it --rm \
@@ -104,6 +108,7 @@ podman run -it --rm \
 # Get a bash shell
 podman run -it --rm \
   -v coreos-agent-config:/home/agent/.config \
+  -v ~/.config/gcloud:/home/agent/.config/gcloud:ro \
   -e JIRA_API_TOKEN="your-token" \
   ghcr.io/cverna/coreos-agent-tools/coreos-agent:latest bash
 
@@ -141,6 +146,7 @@ export JIRA_API_TOKEN="your-token"
 
 alias coreos-agent='podman run -it --rm \
   -v coreos-agent-config:/home/agent/.config \
+  -v ~/.config/gcloud:/home/agent/.config/gcloud:ro \
   -v $(pwd):/workspace \
   -e JIRA_API_TOKEN="$JIRA_API_TOKEN" \
   ghcr.io/cverna/coreos-agent-tools/coreos-agent:latest'
