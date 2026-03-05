@@ -1,39 +1,43 @@
-# Installation Guide (Fedora)
+# Installation Guide
 
-Quick setup guide for using the `analyze-failures` prompt.
+Quick setup guide for using the CoreOS Agent Tools container with OpenCode.
 
 ## Prerequisites
 
-### 1. Install Required CLI Tools
+- Podman or Docker installed
+
+## Pull the Container
 
 ```bash
-sudo dnf install -y jq gh
+podman pull ghcr.io/cverna/coreos-agent-tools/coreos-agent:latest
 ```
 
-### 2. Install coreos-tools
+## First-Time Setup
+
+Start an interactive session to configure the tools. You'll need:
+
+- A GitHub account
+- A Jenkins API token ([how to create one](#jenkins-api-token))
+- A Jira personal access token ([how to create one](#jira-personal-access-token))
 
 ```bash
-go install github.com/cverna/coreos-agent-tools/go/cmd/coreos-tools@latest
+podman run -it \
+  -v coreos-agent-config:/home/agent/.config \
+  -e JIRA_API_TOKEN="your-jira-token" \
+  ghcr.io/cverna/coreos-agent-tools/coreos-agent:latest bash
 ```
 
-Ensure `~/go/bin` is in your PATH:
+**Note:** Don't use `--rm` during setup so configuration is saved even if the session ends unexpectedly.
+
+### Configure GitHub CLI
 
 ```bash
-echo 'export PATH="$PATH:$HOME/go/bin"' >> ~/.bashrc
-source ~/.bashrc
+gh auth login
 ```
 
-### 3. Install Jira CLI (Optional - for creating sub-tasks)
+Follow the prompts to authenticate.
 
-```bash
-go install github.com/ankitpokhrel/jira-cli/cmd/jira@latest
-```
-
-## Configuration
-
-### Jenkins Credentials
-
-Create a Jenkins profile using the built-in command:
+### Configure Jenkins
 
 ```bash
 coreos-tools jenkins profiles create prod \
@@ -44,48 +48,7 @@ coreos-tools jenkins profiles create prod \
 
 When prompted, enter your Jenkins API token.
 
-To get a Jenkins API token:
-1. Log into Jenkins
-2. Click your username → Configure
-3. Add new API Token
-
-#### Multiple Jenkins Instances
-
-You can create profiles for multiple Jenkins instances:
-
-```bash
-# Create additional profiles
-coreos-tools jenkins profiles create stage \
-  --url https://jenkins-stage.example.com/ \
-  --user your-username
-
-# List all profiles
-coreos-tools jenkins profiles list
-
-# Use a specific profile
-coreos-tools jenkins jobs list --profile stage
-
-# Or set via environment variable
-JENKINS_PROFILE=stage coreos-tools jenkins jobs list
-```
-
-Profile priority (highest to lowest):
-1. `--profile` flag
-2. `JENKINS_PROFILE` environment variable
-3. Default profile (set with `--default` flag during creation)
-4. Legacy `~/.config/coreos-tools/.env` file
-
-### GitHub CLI Authentication
-
-```bash
-gh auth login
-```
-
-Follow the prompts to authenticate with GitHub.
-
-### Jira CLI Authentication (Optional)
-
-Configure the Jira CLI with a personal access token:
+### Configure Jira CLI
 
 ```bash
 jira init --installation local \
@@ -96,53 +59,109 @@ jira init --installation local \
   --board "CoreOS Scrum"
 ```
 
-When prompted, paste your personal access token.
-
-To create a token:
-1. Go to https://issues.redhat.com/secure/ViewProfile.jspa?selectedTab=com.atlassian.pats.pats-plugin:jira-user-personal-access-tokens
-2. Click "Create token"
-
-## Verify Installation
+### Verify Setup
 
 ```bash
-# Check all tools are available
-coreos-tools --version
-gh --version
-jq --version
-jira --version  # optional
-
-# Test Jenkins connection
+gh auth status
 coreos-tools jenkins jobs list
+jira issue list
+```
+
+Exit the container when done:
+
+```bash
+exit
 ```
 
 ## Usage
 
-### Install the Slash Command
-
-Download the `analyze-failures.md` prompt to your commands directory:
-
-**For Claude Code:**
+### Run OpenCode
 
 ```bash
-mkdir -p ~/.claude/commands
-curl -fsSL https://raw.githubusercontent.com/cverna/coreos-agent-tools/main/go/analyze-failures.md \
-  -o ~/.claude/commands/analyze-failures.md
+podman run -it --rm \
+  -v coreos-agent-config:/home/agent/.config \
+  -v $(pwd):/workspace \
+  -e JIRA_API_TOKEN="your-token" \
+  ghcr.io/cverna/coreos-agent-tools/coreos-agent:latest
 ```
 
-**For OpenCode:**
+The `/analyze-failures` slash command is pre-installed and can create Jira sub-tasks.
+
+### Run Without Jira
+
+If you don't need Jira integration:
 
 ```bash
-mkdir -p ~/.config/opencode/commands
-curl -fsSL https://raw.githubusercontent.com/cverna/coreos-agent-tools/main/go/analyze-failures.md \
-  -o ~/.config/opencode/commands/analyze-failures.md
+podman run -it --rm \
+  -v coreos-agent-config:/home/agent/.config \
+  -v $(pwd):/workspace \
+  ghcr.io/cverna/coreos-agent-tools/coreos-agent:latest
 ```
 
-### Run the Command
+### Run Other Commands
 
 ```bash
-# Analyze failures interactively
-/analyze-failures
+# Get a bash shell
+podman run -it --rm \
+  -v coreos-agent-config:/home/agent/.config \
+  -e JIRA_API_TOKEN="your-token" \
+  ghcr.io/cverna/coreos-agent-tools/coreos-agent:latest bash
 
-# Analyze specific job
-/analyze-failures build --stream c9s -n 3
+# Run coreos-tools
+podman run --rm \
+  -v coreos-agent-config:/home/agent/.config \
+  ghcr.io/cverna/coreos-agent-tools/coreos-agent:latest \
+  coreos-tools jenkins jobs list
+
+# Run jira
+podman run --rm \
+  -v coreos-agent-config:/home/agent/.config \
+  -e JIRA_API_TOKEN="your-token" \
+  ghcr.io/cverna/coreos-agent-tools/coreos-agent:latest \
+  jira issue list
 ```
+
+## Tools Included
+
+| Tool | Description |
+|------|-------------|
+| `opencode` | AI coding assistant (default) |
+| `coreos-tools` | Jenkins/Jira/OCP management |
+| `jira` | Jira CLI |
+| `gh` | GitHub CLI |
+| `jq` | JSON processor |
+| `git` | Version control |
+
+## Shell Alias (Optional)
+
+Add to your `~/.bashrc` or `~/.zshrc`:
+
+```bash
+export JIRA_API_TOKEN="your-token"
+
+alias coreos-agent='podman run -it --rm \
+  -v coreos-agent-config:/home/agent/.config \
+  -v $(pwd):/workspace \
+  -e JIRA_API_TOKEN="$JIRA_API_TOKEN" \
+  ghcr.io/cverna/coreos-agent-tools/coreos-agent:latest'
+```
+
+Then simply run:
+
+```bash
+coreos-agent          # OpenCode with Jira support
+coreos-agent bash     # Shell with Jira support
+```
+
+## Appendix
+
+### Jenkins API Token
+
+1. Log into Jenkins
+2. Click your username → Configure
+3. Add new API Token
+
+### Jira Personal Access Token
+
+1. Go to https://issues.redhat.com/secure/ViewProfile.jspa?selectedTab=com.atlassian.pats.pats-plugin:jira-user-personal-access-tokens
+2. Click "Create token"
