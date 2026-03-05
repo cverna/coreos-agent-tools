@@ -41,7 +41,7 @@ Follow the prompts to authenticate.
 ### Configure Jenkins
 
 ```bash
-coreos-tools jenkins profiles create prod \
+coreos-tools jenkins profiles create rhcos \
   --url https://jenkins-rhcos--prod-pipeline.apps.int.prod-stable-spoke1-dc-iad2.itup.redhat.com/ \
   --user your-username \
   --default
@@ -84,12 +84,14 @@ podman run -it --rm \
   -v ~/.config/gcloud:/home/agent/.config/gcloud:ro \
   -v $(pwd):/workspace \
   -e JIRA_API_TOKEN="your-token" \
+  -e GOOGLE_CLOUD_PROJECT="your-gcp-project" \
+  -e VERTEX_LOCATION="global" \
   ghcr.io/cverna/coreos-agent-tools/coreos-agent:latest
 ```
 
 The `/analyze-failures` slash command is pre-installed and can create Jira sub-tasks.
 
-The gcloud mount provides access to additional AI models (e.g., Vertex AI) in OpenCode.
+The gcloud mount and environment variables provide access to additional AI models (e.g., Vertex AI) in OpenCode.
 
 ### Run Without Jira or gcloud
 
@@ -110,6 +112,8 @@ podman run -it --rm \
   -v coreos-agent-config:/home/agent/.config \
   -v ~/.config/gcloud:/home/agent/.config/gcloud:ro \
   -e JIRA_API_TOKEN="your-token" \
+  -e GOOGLE_CLOUD_PROJECT="your-gcp-project" \
+  -e VERTEX_LOCATION="global" \
   ghcr.io/cverna/coreos-agent-tools/coreos-agent:latest bash
 
 # Run coreos-tools
@@ -143,12 +147,16 @@ Add to your `~/.bashrc` or `~/.zshrc`:
 
 ```bash
 export JIRA_API_TOKEN="your-token"
+export GOOGLE_CLOUD_PROJECT="your-gcp-project"
+export VERTEX_LOCATION="global"
 
 alias coreos-agent='podman run -it --rm \
   -v coreos-agent-config:/home/agent/.config \
   -v ~/.config/gcloud:/home/agent/.config/gcloud:ro \
   -v $(pwd):/workspace \
   -e JIRA_API_TOKEN="$JIRA_API_TOKEN" \
+  -e GOOGLE_CLOUD_PROJECT="$GOOGLE_CLOUD_PROJECT" \
+  -e VERTEX_LOCATION="$VERTEX_LOCATION" \
   ghcr.io/cverna/coreos-agent-tools/coreos-agent:latest'
 ```
 
