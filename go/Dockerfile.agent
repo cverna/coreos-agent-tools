@@ -101,14 +101,21 @@ RUN useradd -m -u 1000 -s /bin/bash agent
 RUN mkdir -p /home/agent/.config /home/agent/.local && \
     chown -R agent:agent /home/agent
 
-# Copy analyze-failures.md slash command to a location that persists
-# When ~/.config is mounted as a volume, this file needs to be copied to the host.
-# We store a copy in /opt for reference and provide an init script.
+# Copy OpenCode config files to a staging location
+# When ~/.config is mounted as a volume, these files need to be copied on first run.
+# We store copies in /opt for reference and provide an init script.
 COPY go/analyze-failures.md /opt/opencode-commands/analyze-failures.md
+COPY go/opencode.json /opt/opencode-config/opencode.json
 
-# Create an init script to copy slash command on first run
+# Create an init script to copy config files on first run
 RUN printf '%s\n' \
     '#!/bin/bash' \
+    '# Install default OpenCode config if not present' \
+    'if [ ! -f "$HOME/.config/opencode/opencode.json" ]; then' \
+    '  mkdir -p "$HOME/.config/opencode"' \
+    '  cp /opt/opencode-config/opencode.json "$HOME/.config/opencode/"' \
+    '  echo "Installed default opencode.json config"' \
+    'fi' \
     '# Install slash command if not present' \
     'if [ ! -f "$HOME/.config/opencode/commands/analyze-failures.md" ]; then' \
     '  mkdir -p "$HOME/.config/opencode/commands"' \
