@@ -1,0 +1,125 @@
+# ============================================================================
+# CoreOS Agent Tools Container
+# 
+# A multi-arch container with OpenCode AI assistant and CoreOS tools for
+# analyzing Jenkins build failures and managing RHCOS infrastructure.
+#
+# Image: ghcr.io/cverna/coreos-agent-tools/coreos-agent:latest
+#
+# Pull:
+#   podman pull ghcr.io/cverna/coreos-agent-tools/coreos-agent:latest
+#
+# Build locally:
+#   podman build -t coreos-agent -f go/Dockerfile.agent .
+#
+# Run (OpenCode as default):
+#   podman run -it --rm \
+#     -v coreos-agent-config:/home/agent/.config \
+#     -v ~/.config/gcloud:/home/agent/.config/gcloud:ro \
+#     -v $(pwd):/workspace \
+#     ghcr.io/cverna/coreos-agent-tools/coreos-agent:latest
+#
+# Volume strategy:
+#   - coreos-agent-config: Named volume for persistent container config
+#     (gh, jira, opencode, coreos-tools credentials - isolated from host)
+#   - ~/.config/gcloud: Bind mount to share gcloud credentials from host
+#   - $(pwd):/workspace: Current directory as workspace
+#
+# Note: On macOS with podman machine, you may need to configure directory
+# sharing for host bind mounts (gcloud, workspace). The named volume works
+# without additional configuration.
+#
+# First-time setup (run inside the container):
+#   gh auth login
+#   jira init  # requires -e JIRA_API_TOKEN and -e JIRA_AUTH_TYPE=bearer
+#   coreos-tools jenkins profiles create prod --url <jenkins-url> --user <user>
+#
+# Example with Jira token:
+#   podman run -it --rm \
+#     -v coreos-agent-config:/home/agent/.config \
+#     -e JIRA_API_TOKEN="your-token" \
+#     -e JIRA_AUTH_TYPE="bearer" \
+#     coreos-agent bash
+#
+# ============================================================================
+
+FROM quay.io/fedora/fedora:43
+
+ARG TARGETARCH
+
+LABEL org.opencontainers.image.title="CoreOS Agent Tools"
+LABEL org.opencontainers.image.description="OpenCode AI assistant with CoreOS tools for Jenkins/Jira/OCP management"
+LABEL org.opencontainers.image.source="https://github.com/cverna/coreos-agent-tools"
+
+# Install system packages
+RUN dnf install -y \
+    jq \
+    gh \
+    git \
+    curl \
+    tar \
+    && dnf clean all \
+    && rm -rf /var/cache/dnf
+
+# Download coreos-tools binary (pre-built from GitHub releases)
+# Binary naming: coreos-tools-linux-amd64 or coreos-tools-linux-arm64
+RUN curl -fsSL "https://github.com/cverna/coreos-agent-tools/releases/latest/download/coreos-tools-linux-${TARGETARCH}" \
+      -o /usr/local/bin/coreos-tools && \
+    chmod +x /usr/local/bin/coreos-tools
+
+# Download jira-cli binary (pre-built from GitHub releases)
+# Binary naming: jira_VERSION_linux_x86_64.tar.gz or jira_VERSION_linux_arm64.tar.gz
+# Tarball extracts to: jira_VERSION_linux_ARCH/bin/jira
+RUN JIRA_ARCH=$([ "$TARGETARCH" = "amd64" ] && echo "x86_64" || echo "arm64") && \
+    JIRA_VERSION=$(curl -fsSL "https://api.github.com/repos/ankitpokhrel/jira-cli/releases/latest" | jq -r '.tag_name' | sed 's/^v//') && \
+    curl -fsSL "https://github.com/ankitpokhrel/jira-cli/releases/latest/download/jira_${JIRA_VERSION}_linux_${JIRA_ARCH}.tar.gz" \
+      -o /tmp/jira.tar.gz && \
+    tar -xzf /tmp/jira.tar.gz -C /tmp && \
+    mv /tmp/jira_${JIRA_VERSION}_linux_${JIRA_ARCH}/bin/jira /usr/local/bin/jira && \
+    chmod +x /usr/local/bin/jira && \
+    rm -rf /tmp/jira.tar.gz /tmp/jira_*
+
+# Download OpenCode binary (pre-built from GitHub releases)
+# Binary naming: opencode-linux-x64.tar.gz or opencode-linux-arm64.tar.gz
+RUN OPENCODE_ARCH=$([ "$TARGETARCH" = "amd64" ] && echo "x64" || echo "arm64") && \
+    curl -fsSL "https://github.com/anomalyco/opencode/releases/latest/download/opencode-linux-${OPENCODE_ARCH}.tar.gz" \
+      -o /tmp/opencode.tar.gz && \
+    tar -xzf /tmp/opencode.tar.gz -C /tmp && \
+    mv /tmp/opencode /usr/local/bin/opencode && \
+    chmod +x /usr/local/bin/opencode && \
+    rm -rf /tmp/opencode.tar.gz
+
+# Create non-root user with UID 1000 (matches typical host user)
+RUN useradd -m -u 1000 -s /bin/bash agent
+
+# Set up base config directory (will be overlaid by volume mount)
+RUN mkdir -p /home/agent/.config && \
+    chown -R agent:agent /home/agent
+
+# Copy analyze-failures.md slash command to a location that persists
+# When ~/.config is mounted as a volume, this file needs to be copied to the host.
+# We store a copy in /opt for reference and provide an init script.
+COPY go/analyze-failures.md /opt/opencode-commands/analyze-failures.md
+
+# Create an init script to copy slash command on first run
+RUN printf '%s\n' \
+    '#!/bin/bash' \
+    '# Install slash command if not present' \
+    'if [ ! -f "$HOME/.config/opencode/commands/analyze-failures.md" ]; then' \
+    '  mkdir -p "$HOME/.config/opencode/commands"' \
+    '  cp /opt/opencode-commands/analyze-failures.md "$HOME/.config/opencode/commands/"' \
+    '  echo "Installed analyze-failures.md slash command"' \
+    'fi' \
+    'exec "$@"' > /usr/local/bin/entrypoint.sh && \
+    chmod +x /usr/local/bin/entrypoint.sh
+
+# Set up workspace directory
+RUN mkdir -p /workspace && chown agent:agent /workspace
+WORKDIR /workspace
+
+# Switch to non-root user
+USER agent
+
+# Use entrypoint script to initialize config, then run the command
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["opencode"]
