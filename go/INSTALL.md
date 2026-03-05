@@ -24,11 +24,19 @@ Start an interactive session to configure the tools. You'll need:
 ```bash
 podman run -it \
   -v coreos-agent-config:/home/agent/.config \
+  -v coreos-agent-data:/home/agent/.local/share \
   -e JIRA_API_TOKEN="your-jira-token" \
   ghcr.io/cverna/coreos-agent-tools/coreos-agent:latest bash
 ```
 
 **Note:** Don't use `--rm` during setup so configuration is saved even if the session ends unexpectedly.
+
+### Volume Overview
+
+| Volume | Path | Purpose |
+|--------|------|---------|
+| `coreos-agent-config` | `/home/agent/.config` | Tool configurations (gh, jira, coreos-tools, opencode) |
+| `coreos-agent-data` | `/home/agent/.local/share` | Application data (OpenCode sessions, conversation history) |
 
 ### Configure GitHub CLI
 
@@ -81,6 +89,7 @@ exit
 ```bash
 podman run -it --rm \
   -v coreos-agent-config:/home/agent/.config \
+  -v coreos-agent-data:/home/agent/.local/share \
   -v ~/.config/gcloud:/home/agent/.config/gcloud:ro \
   -v $(pwd):/workspace \
   -e JIRA_API_TOKEN="your-token" \
@@ -91,6 +100,8 @@ podman run -it --rm \
 
 The `/analyze-failures` slash command is pre-installed and can create Jira sub-tasks.
 
+The `coreos-agent-data` volume persists OpenCode sessions, so you can resume previous conversations.
+
 The gcloud mount and environment variables provide access to additional AI models (e.g., Vertex AI) in OpenCode.
 
 ### Run Without Jira or gcloud
@@ -100,6 +111,7 @@ If you don't need Jira integration or additional models:
 ```bash
 podman run -it --rm \
   -v coreos-agent-config:/home/agent/.config \
+  -v coreos-agent-data:/home/agent/.local/share \
   -v $(pwd):/workspace \
   ghcr.io/cverna/coreos-agent-tools/coreos-agent:latest
 ```
@@ -110,6 +122,7 @@ podman run -it --rm \
 # Get a bash shell
 podman run -it --rm \
   -v coreos-agent-config:/home/agent/.config \
+  -v coreos-agent-data:/home/agent/.local/share \
   -v ~/.config/gcloud:/home/agent/.config/gcloud:ro \
   -e JIRA_API_TOKEN="your-token" \
   -e GOOGLE_CLOUD_PROJECT="your-gcp-project" \
@@ -152,6 +165,7 @@ export VERTEX_LOCATION="global"
 
 alias coreos-agent='podman run -it --rm \
   -v coreos-agent-config:/home/agent/.config \
+  -v coreos-agent-data:/home/agent/.local/share \
   -v ~/.config/gcloud:/home/agent/.config/gcloud:ro \
   -v $(pwd):/workspace \
   -e JIRA_API_TOKEN="$JIRA_API_TOKEN" \

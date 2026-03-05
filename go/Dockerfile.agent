@@ -15,6 +15,7 @@
 # Run (OpenCode as default):
 #   podman run -it --rm \
 #     -v coreos-agent-config:/home/agent/.config \
+#     -v coreos-agent-data:/home/agent/.local/share \
 #     -v ~/.config/gcloud:/home/agent/.config/gcloud:ro \
 #     -v $(pwd):/workspace \
 #     ghcr.io/cverna/coreos-agent-tools/coreos-agent:latest
@@ -22,6 +23,8 @@
 # Volume strategy:
 #   - coreos-agent-config: Named volume for persistent container config
 #     (gh, jira, opencode, coreos-tools credentials - isolated from host)
+#   - coreos-agent-data: Named volume for persistent application data
+#     (opencode sessions, conversation history)
 #   - ~/.config/gcloud: Bind mount to share gcloud credentials from host
 #   - $(pwd):/workspace: Current directory as workspace
 #
@@ -92,8 +95,10 @@ RUN OPENCODE_ARCH=$([ "$TARGETARCH" = "amd64" ] && echo "x64" || echo "arm64") &
 # Create non-root user with UID 1000 (matches typical host user)
 RUN useradd -m -u 1000 -s /bin/bash agent
 
-# Set up base config directory (will be overlaid by volume mount)
-RUN mkdir -p /home/agent/.config && \
+# Set up base directories (will be overlaid by volume mounts)
+# ~/.config: tool configurations (opencode, gh, jira, coreos-tools)
+# ~/.local/share: application data (opencode sessions)
+RUN mkdir -p /home/agent/.config /home/agent/.local/share && \
     chown -R agent:agent /home/agent
 
 # Copy analyze-failures.md slash command to a location that persists
