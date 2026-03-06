@@ -1,4 +1,23 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "model": "google-vertex-anthropic/claude-opus-4-5@20251101"
+  "model": "google-vertex-anthropic/claude-opus-4-5@20251101",
+  "permission": {
+    "external_directory": {
+      "/tmp/*": "allow"
+    },
+    "read": {
+      "*": "allow",
+      "*.env": "deny",
+      "*.env.*": "deny",
+      "*.env.example": "allow",
+      "~/.config/*": "deny",
+      "~/.config/opencode/*": "allow"
+    },
+    "bash": {
+      "env": "deny",
+      "env *": "deny",
+      "printenv": "deny",
+      "printenv *": "deny"
+    }
+  }
 }
