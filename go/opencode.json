@@ -18,6 +18,9 @@
       "env *": "deny",
       "printenv": "deny",
       "printenv *": "deny"
+    },
+    "skill": {
+      "*": "allow"
     }
   }
 }
