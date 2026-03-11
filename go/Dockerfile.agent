@@ -17,6 +17,9 @@
 #     -v coreos-agent-config:/home/agent/.config \
 #     -v coreos-agent-data:/home/agent/.local \
 #     -v ~/.config/gcloud:/home/agent/.config/gcloud:ro \
+#     -v /run/user/501/podman/podman.sock:/run/podman/podman.sock \
+#     --security-opt label=disable \
+#     -e CONTAINER_HOST=unix:///run/podman/podman.sock \
 #     -v $(pwd):/workspace \
 #     ghcr.io/cverna/coreos-agent-tools/coreos-agent:latest
 #
@@ -61,8 +64,12 @@ RUN dnf install -y \
     git \
     curl \
     tar \
+    podman-remote \
     && dnf clean all \
     && rm -rf /var/cache/dnf
+
+# Create symlink so 'podman' command works (uses podman-remote)
+RUN ln -s /usr/bin/podman-remote /usr/local/bin/podman
 
 # Download coreos-tools binary (pre-built from GitHub releases)
 # Binary naming: coreos-tools-linux-amd64 or coreos-tools-linux-arm64

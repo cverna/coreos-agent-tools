@@ -91,10 +91,13 @@ podman run -it --rm \
   -v coreos-agent-config:/home/agent/.config \
   -v coreos-agent-data:/home/agent/.local \
   -v ~/.config/gcloud:/home/agent/.config/gcloud:ro \
+  -v /run/user/501/podman/podman.sock:/run/podman/podman.sock \
+  --security-opt label=disable \
   -v $(pwd):/workspace \
   -e JIRA_API_TOKEN="your-token" \
   -e GOOGLE_CLOUD_PROJECT="your-gcp-project" \
   -e VERTEX_LOCATION="global" \
+  -e CONTAINER_HOST="unix:///run/podman/podman.sock" \
   ghcr.io/cverna/coreos-agent-tools/coreos-agent:latest
 ```
 
@@ -104,6 +107,8 @@ The `coreos-agent-data` volume persists OpenCode sessions and model selection, s
 
 The gcloud mount and environment variables provide access to additional AI models (e.g., Vertex AI) in OpenCode.
 
+The podman socket mount allows the agent to run containers (e.g., for testing or running tools). The `--security-opt label=disable` is required to access the socket.
+
 ### Run Without Jira or gcloud
 
 If you don't need Jira integration or additional models:
@@ -112,7 +117,10 @@ If you don't need Jira integration or additional models:
 podman run -it --rm \
   -v coreos-agent-config:/home/agent/.config \
   -v coreos-agent-data:/home/agent/.local \
+  -v /run/user/501/podman/podman.sock:/run/podman/podman.sock \
+  --security-opt label=disable \
   -v $(pwd):/workspace \
+  -e CONTAINER_HOST="unix:///run/podman/podman.sock" \
   ghcr.io/cverna/coreos-agent-tools/coreos-agent:latest
 ```
 
@@ -124,9 +132,12 @@ podman run -it --rm \
   -v coreos-agent-config:/home/agent/.config \
   -v coreos-agent-data:/home/agent/.local \
   -v ~/.config/gcloud:/home/agent/.config/gcloud:ro \
+  -v /run/user/501/podman/podman.sock:/run/podman/podman.sock \
+  --security-opt label=disable \
   -e JIRA_API_TOKEN="your-token" \
   -e GOOGLE_CLOUD_PROJECT="your-gcp-project" \
   -e VERTEX_LOCATION="global" \
+  -e CONTAINER_HOST="unix:///run/podman/podman.sock" \
   ghcr.io/cverna/coreos-agent-tools/coreos-agent:latest bash
 
 # Run coreos-tools
@@ -151,6 +162,7 @@ podman run --rm \
 | `coreos-tools` | Jenkins/Jira/OCP management |
 | `jira` | Jira CLI |
 | `gh` | GitHub CLI |
+| `podman` | Container management (via host socket) |
 | `jq` | JSON processor |
 | `git` | Version control |
 
@@ -167,10 +179,13 @@ alias coreos-agent='podman run -it --rm \
   -v coreos-agent-config:/home/agent/.config \
   -v coreos-agent-data:/home/agent/.local \
   -v ~/.config/gcloud:/home/agent/.config/gcloud:ro \
+  -v /run/user/501/podman/podman.sock:/run/podman/podman.sock \
+  --security-opt label=disable \
   -v $(pwd):/workspace \
   -e JIRA_API_TOKEN="$JIRA_API_TOKEN" \
   -e GOOGLE_CLOUD_PROJECT="$GOOGLE_CLOUD_PROJECT" \
   -e VERTEX_LOCATION="$VERTEX_LOCATION" \
+  -e CONTAINER_HOST="unix:///run/podman/podman.sock" \
   ghcr.io/cverna/coreos-agent-tools/coreos-agent:latest'
 ```
 
