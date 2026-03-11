@@ -110,27 +110,18 @@ COPY go/skills/rhcos-builds/SKILL.md /opt/opencode-skills/rhcos-builds/SKILL.md
 COPY go/skills/pipeline-failures/SKILL.md /opt/opencode-skills/pipeline-failures/SKILL.md
 COPY go/skills/bug-investigation/SKILL.md /opt/opencode-skills/bug-investigation/SKILL.md
 
-# Create an init script to copy config files on first run
+# Create an init script to sync config files on every run
+# This ensures new skills/commands are available after image updates
 RUN printf '%s\n' \
     '#!/bin/bash' \
-    '# Install default OpenCode config if not present' \
-    'if [ ! -f "$HOME/.config/opencode/opencode.json" ]; then' \
-    '  mkdir -p "$HOME/.config/opencode"' \
-    '  cp /opt/opencode-config/opencode.json "$HOME/.config/opencode/"' \
-    '  echo "Installed default opencode.json config"' \
-    'fi' \
-    '# Install slash command if not present' \
-    'if [ ! -f "$HOME/.config/opencode/commands/analyze-failures.md" ]; then' \
-    '  mkdir -p "$HOME/.config/opencode/commands"' \
-    '  cp /opt/opencode-commands/analyze-failures.md "$HOME/.config/opencode/commands/"' \
-    '  echo "Installed analyze-failures.md slash command"' \
-    'fi' \
-    '# Install skills if not present' \
-    'if [ ! -d "$HOME/.config/opencode/skills/rhcos-builds" ]; then' \
-    '  mkdir -p "$HOME/.config/opencode/skills"' \
-    '  cp -r /opt/opencode-skills/* "$HOME/.config/opencode/skills/"' \
-    '  echo "Installed OpenCode skills: rhcos-builds, pipeline-failures"' \
-    'fi' \
+    '# Sync OpenCode config files from image to volume' \
+    '# Always overwrites to ensure latest version from image' \
+    'mkdir -p "$HOME/.config/opencode"' \
+    'cp /opt/opencode-config/opencode.json "$HOME/.config/opencode/"' \
+    'mkdir -p "$HOME/.config/opencode/commands"' \
+    'cp /opt/opencode-commands/analyze-failures.md "$HOME/.config/opencode/commands/"' \
+    'mkdir -p "$HOME/.config/opencode/skills"' \
+    'cp -r /opt/opencode-skills/* "$HOME/.config/opencode/skills/"' \
     'exec "$@"' > /usr/local/bin/entrypoint.sh && \
     chmod +x /usr/local/bin/entrypoint.sh
 
