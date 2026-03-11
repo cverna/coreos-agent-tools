@@ -99,6 +99,17 @@ RUN OPENCODE_ARCH=$([ "$TARGETARCH" = "amd64" ] && echo "x64" || echo "arm64") &
     chmod +x /usr/local/bin/opencode && \
     rm -rf /tmp/opencode.tar.gz
 
+# Download OpenShift client (oc and kubectl) from official mirror
+# Binary naming: openshift-client-linux.tar.gz (amd64) or openshift-client-linux-arm64.tar.gz (arm64)
+RUN OC_SUFFIX=$([ "$TARGETARCH" = "amd64" ] && echo "" || echo "-arm64") && \
+    curl -fsSL "https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/openshift-client-linux${OC_SUFFIX}.tar.gz" \
+      -o /tmp/oc.tar.gz && \
+    tar -xzf /tmp/oc.tar.gz -C /tmp && \
+    mv /tmp/oc /usr/local/bin/oc && \
+    mv /tmp/kubectl /usr/local/bin/kubectl && \
+    chmod +x /usr/local/bin/oc /usr/local/bin/kubectl && \
+    rm -rf /tmp/oc.tar.gz /tmp/README.md
+
 # Create non-root user with UID 1000 (matches typical host user)
 RUN useradd -m -u 1000 -s /bin/bash agent
 

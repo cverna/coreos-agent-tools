@@ -162,6 +162,8 @@ podman run --rm \
 | `coreos-tools` | Jenkins/Jira/OCP management |
 | `jira` | Jira CLI |
 | `gh` | GitHub CLI |
+| `oc` | OpenShift CLI |
+| `kubectl` | Kubernetes CLI |
 | `podman` | Container management (via host socket) |
 | `jq` | JSON processor |
 | `git` | Version control |
