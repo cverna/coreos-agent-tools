@@ -7,7 +7,7 @@ description: Investigate Jenkins CI pipeline failures - failure patterns, root c
 
 Knowledge for investigating Jenkins CI pipeline failures in the CoreOS build system.
 
-> Related: `rhcos-build-pipeline` (Jenkins jobs), `rhcos-artifacts` (artifacts, diffs, cosa comparison), `jira-workflows` (creating failure issues)
+> Related: `rhcos-build-pipeline` (Jenkins jobs), `rhcos-artifacts` (artifacts, diffs, cosa comparison), `pipeline-jira` (creating failure issues)
 
 ## Investigation Workflow
 
