@@ -125,6 +125,7 @@ RUN mkdir -p /home/agent/.config /home/agent/.local && \
 COPY go/analyze-failures.md /opt/opencode-commands/analyze-failures.md
 COPY go/opencode.json /opt/opencode-config/opencode.json
 COPY go/skills/ /opt/opencode-skills/
+COPY go/opencode-plugins/ /opt/opencode-plugins/
 
 # Create an init script to sync config files on every run
 # This ensures new skills/commands are available after image updates
@@ -138,6 +139,10 @@ RUN printf '%s\n' \
     'cp /opt/opencode-commands/analyze-failures.md "$HOME/.config/opencode/commands/"' \
     'mkdir -p "$HOME/.config/opencode/skills"' \
     'cp -r /opt/opencode-skills/* "$HOME/.config/opencode/skills/"' \
+    'mkdir -p "$HOME/.config/opencode/plugins"' \
+    'cp /opt/opencode-plugins/*.ts "$HOME/.config/opencode/plugins/" 2>/dev/null || true' \
+    'mkdir -p "$HOME/.config/opencode/heartbeat"' \
+    'cp -r /opt/opencode-plugins/heartbeat/* "$HOME/.config/opencode/heartbeat/" 2>/dev/null || true' \
     'exec "$@"' > /usr/local/bin/entrypoint.sh && \
     chmod +x /usr/local/bin/entrypoint.sh
 
