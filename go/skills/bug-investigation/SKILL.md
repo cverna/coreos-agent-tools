@@ -7,75 +7,33 @@ description: Investigate OCPBUGS bug issues - tracing package sources, finding w
 
 Knowledge for investigating package-related issues in RHEL CoreOS, including tracing package origins, finding when changes were introduced, and comparing package versions across builds.
 
-> For general RHCOS build system knowledge, see the `rhcos-builds` skill.
+> Related: `rhcos-build-pipeline`, `rhcos-repositories`, `rhcos-versions`, `rhcos-brew` (authoritative Brew reference)
 
+## JIRA Investigation
 
-## Brew (Red Hat Build System)
-
-Brew is Red Hat's internal Koji instance for tracking package builds.
-
-**Base URL:** https://brewweb.engineering.redhat.com/brew/
-
-### Searching for Builds
-
-Use `curl` to query Brew (requires VPN):
+Use the JIRA CLI for accessing Red Hat JIRA issues:
 
 ```bash
-# Search for builds by NVR pattern
-curl -sk "https://brewweb.engineering.redhat.com/brew/search?match=glob&type=build&terms=<pattern>" | \
-  grep -oP 'buildinfo\?buildID=\d+[^"]*">[^<]+'
+# View issue details
+jira issue view <issue-key>
 
-# Example: Find all cri-o builds for OCP 4.19
-curl -sk "https://brewweb.engineering.redhat.com/brew/search?match=glob&type=build&terms=cri-o*rhaos4.19*" | \
-  grep -oP 'buildinfo\?buildID=\d+[^"]*">[^<]+'
+# View issue with comments
+jira issue view <issue-key> --comments 20
 
-# Example: Find all builds for a specific package version
-curl -sk "https://brewweb.engineering.redhat.com/brew/search?match=glob&type=build&terms=<package>-<version>*" | \
-  grep -oP 'buildinfo\?buildID=\d+[^"]*">[^<]+'
+# Search for related issues
+jira issue list -q "<search-query>"
 ```
 
-### Getting Build Information
+## Fetching a RHCOS container
+
+Use the `oc` command to find the RHCOS container for a specific OCP version
 
 ```bash
-# Get RPM IDs from a build
-curl -sk "https://brewweb.engineering.redhat.com/brew/buildinfo?buildID=<build-id>" | \
-  grep -oP 'rpminfo\?rpmID=\d+'
+# Find the RHCOS container
+oc adm release info 4.21.3 --image-for rhel-coreos
 
-# Check if a specific file exists in an RPM
-curl -sk "https://brewweb.engineering.redhat.com/brew/rpminfo?rpmID=<rpm-id>" | \
-  grep -i "<filename-pattern>"
-
-# Get build tags
-curl -sk "https://brewweb.engineering.redhat.com/brew/buildinfo?buildID=<build-id>" | \
-  grep -iE "tag"
-```
-
-### Finding When a File Was Introduced
-
-To find when a file was first added to a package, compare successive builds:
-
-```bash
-# 1. List builds chronologically
-curl -sk "https://brewweb.engineering.redhat.com/brew/search?match=glob&type=build&terms=<package>*rhaos4.18*" | \
-  grep -oP 'buildinfo\?buildID=\d+[^"]*">[^<]+'
-
-# 2. For each build, get RPM IDs
-curl -sk "https://brewweb.engineering.redhat.com/brew/buildinfo?buildID=<build-id>" | \
-  grep -oP 'rpminfo\?rpmID=\d+' | head -3
-
-# 3. Check if the file exists in that RPM
-curl -sk "https://brewweb.engineering.redhat.com/brew/rpminfo?rpmID=<rpm-id>" | \
-  grep -i "<filename>"
-```
-
-### Getting Source Commit Information
-
-Build pages include the source commit:
-
-```bash
-# Extract git commit from build info
-curl -sk "https://brewweb.engineering.redhat.com/brew/buildinfo?buildID=<build-id>" | \
-  grep -iE "git|source|commit"
+# Get the list of installed packages in the container
+podman run --rm quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:bb577f5ed1e0de68ca8beec05200378acb1f1d67098c04fda602627c3f8f31c4 rpm -qa
 ```
 
 ## Dist-Git (pkgs.devel.redhat.com)
@@ -152,21 +110,6 @@ gh api repos/<org>/<repo>/compare/<old-commit>...<new-commit> \
 # Get details of a specific commit
 gh api repos/<org>/<repo>/commits/<commit-sha> \
   --jq '{sha: .sha, author: .commit.author.name, message: .commit.message}'
-```
-
-## JIRA Investigation
-
-Use the JIRA CLI for accessing Red Hat JIRA issues:
-
-```bash
-# View issue details
-jira issue view <issue-key>
-
-# View issue with comments
-jira issue view <issue-key> --comments 20
-
-# Search for related issues
-jira issue list -q "<search-query>"
 ```
 
 ## Key Repositories

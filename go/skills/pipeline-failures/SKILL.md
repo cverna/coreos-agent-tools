@@ -7,7 +7,7 @@ description: Investigate Jenkins CI pipeline failures - failure patterns, root c
 
 Knowledge for investigating Jenkins CI pipeline failures in the CoreOS build system.
 
-> For general Jenkins CLI commands, build artifacts, and package comparison syntax, see the `rhcos-builds` skill.
+> Related: `rhcos-build-pipeline` (Jenkins jobs), `rhcos-artifacts` (artifacts, diffs, cosa comparison), `jira-workflows` (creating failure issues)
 
 ## Investigation Workflow
 
@@ -86,27 +86,6 @@ grep -E "FAILED|UNSTABLE" /tmp/build.log
 | Network/connectivity | Transient | Retry |
 | `Permission denied` | SELinux/config | Investigate policy changes |
 | `No space left on device` | Disk exhaustion | Clean up or expand storage |
-
-## Comparing coreos-assembler Versions
-
-When cosa version differs between good and bad builds:
-
-```bash
-# Download cosa git info from both builds
-coreos-tools jenkins builds artifacts <job-name> <failed-build> --download coreos-assembler-git.json -o /tmp/failed-cosa.json
-coreos-tools jenkins builds artifacts <job-name> <good-build> --download coreos-assembler-git.json -o /tmp/good-cosa.json
-
-# Compare
-diff /tmp/good-cosa.json /tmp/failed-cosa.json
-
-# Find commits between versions using GitHub CLI
-gh api repos/coreos/coreos-assembler/compare/<old-commit>...<new-commit> \
-  --jq '.commits[] | {sha: .sha[0:7], date: .commit.author.date, message: .commit.message | split("\n")[0]}'
-
-# Get details of a specific commit
-gh api repos/coreos/coreos-assembler/commits/<commit-sha> \
-  --jq '{sha: .sha, author: .commit.author.name, message: .commit.message}'
-```
 
 ## Triggering Retries
 

@@ -124,9 +124,7 @@ RUN mkdir -p /home/agent/.config /home/agent/.local && \
 # We store copies in /opt for reference and provide an init script.
 COPY go/analyze-failures.md /opt/opencode-commands/analyze-failures.md
 COPY go/opencode.json /opt/opencode-config/opencode.json
-COPY go/skills/rhcos-builds/SKILL.md /opt/opencode-skills/rhcos-builds/SKILL.md
-COPY go/skills/pipeline-failures/SKILL.md /opt/opencode-skills/pipeline-failures/SKILL.md
-COPY go/skills/bug-investigation/SKILL.md /opt/opencode-skills/bug-investigation/SKILL.md
+COPY go/skills/ /opt/opencode-skills/
 
 # Create an init script to sync config files on every run
 # This ensures new skills/commands are available after image updates
