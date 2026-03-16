@@ -60,10 +60,9 @@ When prompted, enter your Jenkins API token.
 ### Configure Jira CLI
 
 ```bash
-jira init --installation local \
-  --server https://issues.redhat.com \
+jira init --installation cloud \
+  --server https://redhat.atlassian.net \
   --login your-email@redhat.com \
-  --auth-type bearer \
   --project COS \
   --board "CoreOS Scrum"
 ```
