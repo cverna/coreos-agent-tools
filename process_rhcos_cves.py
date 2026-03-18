@@ -105,7 +105,7 @@ class JiraClient:
     def query_jira(
         self, jql: str, fields: str = "summary,key", max_results: int = 1000
     ) -> Optional[Dict]:
-        """Query Jira with caching and better error handling."""
+        """Query Jira with pagination, caching and better error handling."""
         cache_key = f"{jql}:{fields}:{max_results}"
 
         # Check cache
@@ -115,18 +115,43 @@ class JiraClient:
                 logger.debug(f"Using cached data for: {jql[:50]}...")
                 return cached_data
 
-        params = {"jql": jql, "fields": fields, "maxResults": max_results}
+        all_issues = []
+        next_page_token = None
+        page_size = min(100, max_results)  # API v3 max is 100 per page
 
         try:
-            response = throttled_request(
-                requests.get, SEARCH_API, params=params, headers=headers
-            )
-            data = response.json()
+            while True:
+                params = {"jql": jql, "fields": fields, "maxResults": page_size}
+                if next_page_token:
+                    params["nextPageToken"] = next_page_token
+
+                response = throttled_request(
+                    requests.get, SEARCH_API, params=params, headers=headers
+                )
+                data = response.json()
+
+                if "errorMessages" in data:
+                    logger.error(f"Jira API error: {data['errorMessages']}")
+                    return None
+
+                all_issues.extend(data.get("issues", []))
+                logger.debug(f"Fetched {len(all_issues)} issues so far...")
+
+                # Check if we've reached max_results or last page
+                if data.get("isLast", True) or len(all_issues) >= max_results:
+                    break
+
+                next_page_token = data.get("nextPageToken")
+                if not next_page_token:
+                    break
+
+            # Build result in same format as original API response
+            result = {"issues": all_issues[:max_results]}
 
             # Cache the result
-            self.cache[cache_key] = (time.time(), data)
+            self.cache[cache_key] = (time.time(), result)
 
-            return data
+            return result
 
         except Exception as e:
             logger.error(f"Failed to query Jira: {e}")
