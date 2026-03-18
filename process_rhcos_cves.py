@@ -323,7 +323,7 @@ class CVEDataProcessor:
 
         data = self.jira_client.query_jira(
             jql,
-            fields="summary,key,status,duedate,customfield_12318450,resolution,issuelinks",
+            fields="summary,key,status,duedate,customfield_10578,resolution,issuelinks",
             max_results=2000,
         )
 
@@ -343,9 +343,12 @@ class CVEDataProcessor:
                     fixed_in_build = None
 
                     if status.lower() == "closed":
-                        fixed_in_build = issue["fields"].get(
-                            "customfield_12318450", "Not specified"
-                        )
+                        # customfield_10578 is "Fixed in Build" in Atlassian Cloud
+                        fixed_in_build = issue["fields"].get("customfield_10578", "")
+                        if fixed_in_build:
+                            fixed_in_build = fixed_in_build.strip()
+                        if not fixed_in_build:
+                            fixed_in_build = "Not specified"
 
                     resolution = issue["fields"].get("resolution", {})
                     resolution_name = (
