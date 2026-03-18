@@ -26,13 +26,21 @@ OCP_TO_RHEL = {
     "4.22": "9.8",
 }
 
-SEARCH_API = "https://issues.redhat.com/rest/api/2/search"
-LINK_API = "https://issues.redhat.com/rest/api/2/issueLink"
+import base64
+
+JIRA_BASE_URL = "https://redhat.atlassian.net"
+SEARCH_API = f"{JIRA_BASE_URL}/rest/api/3/search/jql"
+LINK_API = f"{JIRA_BASE_URL}/rest/api/3/issueLink"
 AUTH_TOKEN = os.getenv("JIRA_API_TOKEN")
+JIRA_EMAIL = os.getenv("JIRA_EMAIL")
 if not AUTH_TOKEN:
     raise ValueError("JIRA_API_TOKEN environment variable is not set")
+if not JIRA_EMAIL:
+    raise ValueError("JIRA_EMAIL environment variable is not set")
 
-headers = {"Authorization": f"Bearer {AUTH_TOKEN}", "Content-Type": "application/json"}
+# Atlassian Cloud uses Basic auth with email:api_token
+auth_string = base64.b64encode(f"{JIRA_EMAIL}:{AUTH_TOKEN}".encode()).decode()
+headers = {"Authorization": f"Basic {auth_string}", "Content-Type": "application/json"}
 
 # Rate limiting
 RATE_LIMIT = 2  # requests per second
@@ -268,7 +276,7 @@ class CVEDataProcessor:
                     cve_id=cve_id,
                     summary=summary,
                     key=issue["key"],
-                    link=f"https://issues.redhat.com/browse/{issue['key']}",
+                    link=f"{JIRA_BASE_URL}/browse/{issue['key']}",
                     ocp_version=ocp_ver,
                     rhel_version=rhel_ver,
                     status=issue["fields"]["status"]["name"],
@@ -327,7 +335,7 @@ class CVEDataProcessor:
                             RHELIssue(
                                 summary=summary,
                                 key=issue["key"],
-                                link=f"https://issues.redhat.com/browse/{issue['key']}",
+                                link=f"{JIRA_BASE_URL}/browse/{issue['key']}",
                                 rhel_version=self.extract_rhel_version(summary),
                                 status=status,
                                 fixed_in_build=fixed_in_build,
