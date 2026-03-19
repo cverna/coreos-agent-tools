@@ -135,6 +135,7 @@ RUN mkdir -p /home/agent/.config /home/agent/.local && \
 # We store copies in /opt for reference and provide an init script.
 COPY go/analyze-failures.md /opt/opencode-commands/analyze-failures.md
 COPY go/opencode.json /opt/opencode-config/opencode.json
+COPY go/AGENTS.container.md /opt/opencode-config/AGENTS.md
 COPY go/skills/ /opt/opencode-skills/
 COPY go/opencode-plugins/ /opt/opencode-plugins/
 
@@ -144,8 +145,9 @@ RUN printf '%s\n' \
     '#!/bin/bash' \
     '# Sync OpenCode config files from image to volume' \
     '# Always overwrites to ensure latest version from image' \
-    'mkdir -p "$HOME/.config/opencode"' \
-    'cp /opt/opencode-config/opencode.json "$HOME/.config/opencode/"' \
+'mkdir -p "$HOME/.config/opencode"' \
+'cp /opt/opencode-config/opencode.json "$HOME/.config/opencode/"' \
+'cp /opt/opencode-config/AGENTS.md "$HOME/.config/opencode/"' \
     'mkdir -p "$HOME/.config/opencode/commands"' \
     'cp /opt/opencode-commands/analyze-failures.md "$HOME/.config/opencode/commands/"' \
     'mkdir -p "$HOME/.config/opencode/skills"' \
