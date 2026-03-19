@@ -46,6 +46,17 @@ gh auth login
 
 Follow the prompts to authenticate.
 
+### Configure GitLab CLI
+For gitlab.com:
+```bash
+glab auth login
+
+For Red Hat internal GitLab:
+glab auth login --hostname gitlab.cee.redhat.com
+```
+Follow the prompts to authenticate. To add multiple instances, run the command again with a different hostname.
+
+
 ### Configure Jenkins
 
 ```bash
@@ -71,6 +82,7 @@ jira init --installation cloud \
 
 ```bash
 gh auth status
+glab auth status
 coreos-tools jenkins jobs list
 jira issue list
 ```
@@ -161,6 +173,7 @@ podman run --rm \
 | `coreos-tools` | Jenkins/Jira/OCP management |
 | `jira` | Jira CLI |
 | `gh` | GitHub CLI |
+| `glab` | GitLab CLI |
 | `oc` | OpenShift CLI |
 | `kubectl` | Kubernetes CLI |
 | `podman` | Container management (via host socket) |

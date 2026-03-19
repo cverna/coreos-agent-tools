@@ -61,6 +61,7 @@ LABEL org.opencontainers.image.source="https://github.com/cverna/coreos-agent-to
 RUN dnf install -y \
     jq \
     gh \
+    glab \
     git \
     curl \
     tar \
