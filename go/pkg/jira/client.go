@@ -18,7 +18,7 @@ import (
 
 const (
 	// DefaultBaseURL is the default Jira base URL.
-	DefaultBaseURL = "https://issues.redhat.com"
+	DefaultBaseURL = "https://redhat.atlassian.net"
 	// CacheTTL is the cache time-to-live in seconds.
 	CacheTTL = 300
 )
@@ -47,6 +47,7 @@ type cacheEntry struct {
 // Client is a Jira API client.
 type Client struct {
 	baseURL    string
+	email      string
 	token      string
 	httpClient *httpclient.Client
 	logger     *slog.Logger
@@ -55,7 +56,7 @@ type Client struct {
 }
 
 // NewClient creates a new Jira client.
-func NewClient(baseURL, token string, logger *slog.Logger) *Client {
+func NewClient(baseURL, email, token string, logger *slog.Logger) *Client {
 	if baseURL == "" {
 		baseURL = DefaultBaseURL
 	}
@@ -64,6 +65,7 @@ func NewClient(baseURL, token string, logger *slog.Logger) *Client {
 	}
 	return &Client{
 		baseURL:    strings.TrimSuffix(baseURL, "/"),
+		email:      email,
 		token:      token,
 		httpClient: httpclient.New(logger),
 		logger:     logger,
@@ -71,7 +73,7 @@ func NewClient(baseURL, token string, logger *slog.Logger) *Client {
 	}
 }
 
-// Query performs a JQL query against Jira.
+// Query performs a JQL query against Jira with pagination support.
 func (c *Client) Query(jql, fields string, maxResults int) (*SearchResponse, error) {
 	cacheKey := fmt.Sprintf("%s:%s:%d", jql, fields, maxResults)
 
@@ -86,53 +88,85 @@ func (c *Client) Query(jql, fields string, maxResults int) (*SearchResponse, err
 	}
 	c.cacheMu.RUnlock()
 
-	// Build request URL
-	u, err := url.Parse(c.baseURL + "/rest/api/2/search")
-	if err != nil {
-		return nil, err
+	var allIssues []Issue
+	var nextPageToken string
+	pageSize := min(100, maxResults) // API v3 max is 100 per page
+
+	for {
+		// Build request URL for API v3
+		u, err := url.Parse(c.baseURL + "/rest/api/3/search/jql")
+		if err != nil {
+			return nil, err
+		}
+
+		q := u.Query()
+		q.Set("jql", jql)
+		q.Set("fields", fields)
+		q.Set("maxResults", fmt.Sprintf("%d", pageSize))
+		if nextPageToken != "" {
+			q.Set("nextPageToken", nextPageToken)
+		}
+		u.RawQuery = q.Encode()
+
+		resp, err := c.httpClient.GetWithBasicAuth(u.String(), c.email, c.token)
+		if err != nil {
+			return nil, fmt.Errorf("failed to query Jira: %w", err)
+		}
+
+		if resp.StatusCode >= 400 {
+			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			return nil, fmt.Errorf("Jira query failed (HTTP %d): %s", resp.StatusCode, string(body))
+		}
+
+		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			return nil, fmt.Errorf("failed to read response: %w", err)
+		}
+
+		var pageResult SearchResponse
+		if err := json.Unmarshal(body, &pageResult); err != nil {
+			return nil, fmt.Errorf("failed to parse response: %w", err)
+		}
+
+		allIssues = append(allIssues, pageResult.Issues...)
+		c.logger.Debug("Fetched issues", "count", len(allIssues))
+
+		// Check if we've reached max_results or last page
+		if pageResult.IsLast || len(allIssues) >= maxResults {
+			break
+		}
+
+		nextPageToken = pageResult.NextPageToken
+		if nextPageToken == "" {
+			break
+		}
 	}
 
-	q := u.Query()
-	q.Set("jql", jql)
-	q.Set("fields", fields)
-	q.Set("maxResults", fmt.Sprintf("%d", maxResults))
-	u.RawQuery = q.Encode()
-
-	resp, err := c.httpClient.GetWithBearer(u.String(), c.token)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query Jira: %w", err)
+	// Build result with all issues (limited to maxResults)
+	if len(allIssues) > maxResults {
+		allIssues = allIssues[:maxResults]
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= 400 {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("Jira query failed (HTTP %d): %s", resp.StatusCode, string(body))
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
-
-	var result SearchResponse
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
+	result := &SearchResponse{
+		Issues: allIssues,
+		IsLast: true,
 	}
 
 	// Cache the result
 	c.cacheMu.Lock()
 	c.cache[cacheKey] = cacheEntry{
-		data:      &result,
+		data:      result,
 		timestamp: time.Now(),
 	}
 	c.cacheMu.Unlock()
 
-	return &result, nil
+	return result, nil
 }
 
 // CreateIssueLink creates a link between two Jira issues.
 func (c *Client) CreateIssueLink(ocpbugKey, rhelKey string) error {
-	linkURL := c.baseURL + "/rest/api/2/issueLink"
+	linkURL := c.baseURL + "/rest/api/3/issueLink"
 
 	payload := CreateIssueLinkRequest{
 		Type:         LinkType{Name: "Blocks"},
@@ -145,7 +179,7 @@ func (c *Client) CreateIssueLink(ocpbugKey, rhelKey string) error {
 		return fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	resp, err := c.httpClient.PostWithBearer(linkURL, c.token, bytes.NewReader(body), "application/json")
+	resp, err := c.httpClient.PostWithBasicAuth(linkURL, c.email, c.token, bytes.NewReader(body), "application/json")
 	if err != nil {
 		return fmt.Errorf("failed to create issue link: %w", err)
 	}
@@ -247,7 +281,7 @@ func (p *CVEProcessor) GetRHCOSIssues() ([]CVEIssue, error) {
 			CVEID:       cveID,
 			Summary:     issue.Fields.Summary,
 			Key:         issue.Key,
-			Link:        fmt.Sprintf("https://issues.redhat.com/browse/%s", issue.Key),
+			Link:        fmt.Sprintf("%s/browse/%s", p.client.baseURL, issue.Key),
 			OCPVersion:  ocpVer,
 			RHELVersion: rhelVer,
 			Status:      issue.Fields.Status.Name,
@@ -272,7 +306,7 @@ func (p *CVEProcessor) GetRHELIssuesBatch(cveIDs []string) (map[string][]RHELIss
 	}
 	jql := fmt.Sprintf("project = RHEL AND issuetype=Vulnerability AND (%s)", strings.Join(conditions, " OR "))
 
-	data, err := p.client.Query(jql, "summary,key,status,duedate,customfield_12318450,resolution,issuelinks", 2000)
+	data, err := p.client.Query(jql, "summary,key,status,duedate,customfield_10578,resolution,issuelinks", 2000)
 	if err != nil {
 		return nil, err
 	}
@@ -293,7 +327,7 @@ func (p *CVEProcessor) GetRHELIssuesBatch(cveIDs []string) (map[string][]RHELIss
 				status := issue.Fields.Status.Name
 				fixedInBuild := ""
 				if strings.ToLower(status) == "closed" {
-					fixedInBuild = issue.Fields.FixedInBuild
+					fixedInBuild = strings.TrimSpace(issue.Fields.FixedInBuild)
 					if fixedInBuild == "" {
 						fixedInBuild = "Not specified"
 					}
@@ -309,7 +343,7 @@ func (p *CVEProcessor) GetRHELIssuesBatch(cveIDs []string) (map[string][]RHELIss
 					result[cveID] = append(result[cveID], RHELIssue{
 						Summary:      summary,
 						Key:          issue.Key,
-						Link:         fmt.Sprintf("https://issues.redhat.com/browse/%s", issue.Key),
+						Link:         fmt.Sprintf("%s/browse/%s", p.client.baseURL, issue.Key),
 						RHELVersion:  p.ExtractRHELVersion(summary),
 						Status:       status,
 						FixedInBuild: fixedInBuild,

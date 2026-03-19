@@ -133,3 +133,27 @@ func (c *Client) PostWithBearer(url, token string, body io.Reader, contentType s
 	}
 	return c.httpClient.Do(req)
 }
+
+// GetWithBasicAuth performs a GET request with Basic authentication using email:token.
+func (c *Client) GetWithBasicAuth(url, email, token string) (*http.Response, error) {
+	req, err := retryablehttp.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.SetBasicAuth(email, token)
+	req.Header.Set("Content-Type", "application/json")
+	return c.httpClient.Do(req)
+}
+
+// PostWithBasicAuth performs a POST request with Basic authentication using email:token.
+func (c *Client) PostWithBasicAuth(url, email, token string, body io.Reader, contentType string) (*http.Response, error) {
+	req, err := retryablehttp.NewRequest(http.MethodPost, url, body)
+	if err != nil {
+		return nil, err
+	}
+	req.SetBasicAuth(email, token)
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
+	return c.httpClient.Do(req)
+}

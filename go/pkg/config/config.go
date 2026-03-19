@@ -20,6 +20,7 @@ type JenkinsConfig struct {
 // JiraConfig holds Jira connection settings.
 type JiraConfig struct {
 	APIToken string
+	Email    string
 	BaseURL  string
 }
 
@@ -95,13 +96,19 @@ func GetJiraConfig() (*JiraConfig, error) {
 		return nil, fmt.Errorf("JIRA_API_TOKEN environment variable is not set")
 	}
 
+	email := os.Getenv("JIRA_EMAIL")
+	if email == "" {
+		return nil, fmt.Errorf("JIRA_EMAIL environment variable is not set")
+	}
+
 	baseURL := os.Getenv("JIRA_BASE_URL")
 	if baseURL == "" {
-		baseURL = "https://issues.redhat.com"
+		baseURL = "https://redhat.atlassian.net"
 	}
 
 	return &JiraConfig{
 		APIToken: token,
+		Email:    email,
 		BaseURL:  baseURL,
 	}, nil
 }
