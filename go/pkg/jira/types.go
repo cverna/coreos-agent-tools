@@ -1,12 +1,11 @@
 // Package jira provides a client for the Jira API.
 package jira
 
-// SearchResponse represents a Jira search API response.
+// SearchResponse represents a Jira search API v3 response.
 type SearchResponse struct {
-	StartAt    int     `json:"startAt"`
-	MaxResults int     `json:"maxResults"`
-	Total      int     `json:"total"`
-	Issues     []Issue `json:"issues"`
+	Issues        []Issue `json:"issues"`
+	NextPageToken string  `json:"nextPageToken,omitempty"`
+	IsLast        bool    `json:"isLast"`
 }
 
 // Issue represents a Jira issue.
@@ -21,7 +20,7 @@ type IssueFields struct {
 	Status       Status      `json:"status"`
 	DueDate      string      `json:"duedate,omitempty"`
 	Resolution   *Resolution `json:"resolution,omitempty"`
-	FixedInBuild string      `json:"customfield_12318450,omitempty"`
+	FixedInBuild string      `json:"customfield_10578,omitempty"` // "Fixed in Build" in Atlassian Cloud
 	IssueLinks   []IssueLink `json:"issuelinks,omitempty"`
 }
 

@@ -36,7 +36,7 @@ vulnerability issues. It matches issues by CVE ID and RHEL version.`,
 		}
 
 		// Create Jira client and processor
-		client := jira.NewClient(cfg.BaseURL, cfg.APIToken, logger)
+		client := jira.NewClient(cfg.BaseURL, cfg.Email, cfg.APIToken, logger)
 		processor := jira.NewCVEProcessor(client, logger)
 
 		// Process CVEs
