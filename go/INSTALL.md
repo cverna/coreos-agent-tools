@@ -196,6 +196,7 @@ podman run --rm \
 | `kubectl` | Kubernetes CLI |
 | `podman` | Container management (via host socket) |
 | `jq` | JSON processor |
+| `yq` | YAML processor |
 | `git` | Version control |
 
 ## Shell Alias (Optional)
