@@ -63,6 +63,7 @@ RUN dnf install -y \
     gh \
     glab \
     git \
+    koji \
     curl \
     tar \
     podman-remote \
@@ -110,6 +111,13 @@ RUN OC_SUFFIX=$([ "$TARGETARCH" = "amd64" ] && echo "" || echo "-arm64") && \
     mv /tmp/kubectl /usr/local/bin/kubectl && \
     chmod +x /usr/local/bin/oc /usr/local/bin/kubectl && \
     rm -rf /tmp/oc.tar.gz /tmp/README.md
+
+# Copy Brew (Red Hat Koji) profile configuration
+COPY go/brew.conf /etc/koji.conf.d/brew.conf
+
+# Create brew wrapper script for koji with brew profile
+RUN printf '#!/bin/bash\nexec koji --profile=brew "$@"\n' > /usr/local/bin/brew && \
+    chmod +x /usr/local/bin/brew
 
 # Create non-root user with UID 1000 (matches typical host user)
 RUN useradd -m -u 1000 -s /bin/bash agent

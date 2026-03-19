@@ -9,54 +9,68 @@ Brew is Red Hat's internal Koji instance for tracking package builds.
 
 > Related: `rhcos-artifacts`, `bug-investigation`
 
-**Base URL:** https://brewweb.engineering.redhat.com/brew/
+**Web UI:** https://brewweb.engineering.redhat.com/brew/
+
+## Prerequisites
+
+- Red Hat VPN access required
+- Anonymous read-only access works without Kerberos
 
 ## Package Search
 
 ```bash
 # Search by package name
-curl -sk "https://brewweb.engineering.redhat.com/brew/search?match=glob&type=package&terms=<package-name>" | \
-  grep -oP 'buildinfo\?buildID=\d+[^"]*">[^<]+'
+brew search package <package-name>
 
-# Example
-curl -sk "https://brewweb.engineering.redhat.com/brew/search?match=glob&type=package&terms=conmon-rs" | \
-  grep -oP 'buildinfo\?buildID=\d+[^"]*">[^<]+'
+# Examples
+brew search package cri-o
+brew search package conmon-rs
 ```
 
 ## Build Search
 
 ```bash
-# Search builds by NVR pattern
-curl -sk "https://brewweb.engineering.redhat.com/brew/search?match=glob&type=build&terms=<pattern>" | \
-  grep -oP 'buildinfo\?buildID=\d+[^"]*">[^<]+'
+# Get latest build for a tag
+brew latest-build <tag> <package>
 
-# Example: Find all conmon-rs builds for RHEL 10
-curl -sk "https://brewweb.engineering.redhat.com/brew/search?match=glob&type=build&terms=conmon-rs*el10*" | \
-  grep -oP 'buildinfo\?buildID=\d+[^"]*">[^<]+'
+# Examples
+brew latest-build rhaos-4.18-rhel-9-candidate cri-o
+brew latest-build rhaos-4.19-rhel-10-candidate conmon-rs
 
-# Example: Find cri-o builds for OCP 4.19
-curl -sk "https://brewweb.engineering.redhat.com/brew/search?match=glob&type=build&terms=cri-o*rhaos4.19*" | \
-  grep -oP 'buildinfo\?buildID=\d+[^"]*">[^<]+'
+# List all builds of a package
+brew list-builds --package=<package>
+brew list-builds --package=cri-o | head -20
 ```
 
 ## Getting Build Information
 
 ```bash
-# Get RPM IDs from a build
-curl -sk "https://brewweb.engineering.redhat.com/brew/buildinfo?buildID=<build-id>" | \
-  grep -oP 'rpminfo\?rpmID=\d+'
+# Get detailed build info (source, timestamps, tags)
+brew buildinfo <nvr>
+brew buildinfo cri-o-1.30.0-1.rhaos4.18.el9
 
-# Check if a specific file exists in an RPM
-curl -sk "https://brewweb.engineering.redhat.com/brew/rpminfo?rpmID=<rpm-id>" | \
-  grep -i "<filename-pattern>"
+# List tags a build is in
+brew list-tags --build=<nvr>
+brew list-tags --build=cri-o-1.30.0-1.rhaos4.18.el9
 
-# Get build tags
-curl -sk "https://brewweb.engineering.redhat.com/brew/buildinfo?buildID=<build-id>" | \
-  grep -iE "tag"
+# List RPMs in a build
+brew buildinfo <nvr> | grep -A100 "^RPMs:"
+```
 
-# Extract git commit from build info
-curl -sk "https://brewweb.engineering.redhat.com/brew/buildinfo?buildID=<build-id>" | \
-  grep -iE "git|source|commit"
+## Tag Operations
+
+```bash
+# List all packages in a tag
+brew list-pkgs --tag=<tag>
+brew list-pkgs --tag=rhaos-4.18-rhel-9-candidate
+
+# List latest builds in a tag
+brew latest-build --all <tag>
+brew latest-build --all rhaos-4.18-rhel-9-candidate | head -20
+
+# Get tag info
+brew taginfo <tag>
+brew taginfo rhaos-4.18-rhel-9-candidate
 ```
 
 ## NVR Naming Convention
@@ -106,20 +120,13 @@ Sometimes RHEL packages are tagged into plashets to fast-track a fix into OpenSh
 | `rhel-Y.Z-appstream` | RHEL Y.Z AppStream |
 | `rhel-Y-server-ose-4.XX` | RHEL Y for OCP 4.XX |
 
-## Finding When a File Was Introduced
-
-To find when a file was first added to a package, compare successive builds:
+## Finding Package History
 
 ```bash
-# 1. List builds chronologically
-curl -sk "https://brewweb.engineering.redhat.com/brew/search?match=glob&type=build&terms=<package>*rhaos4.18*" | \
-  grep -oP 'buildinfo\?buildID=\d+[^"]*">[^<]+'
+# List all builds of a package chronologically
+brew list-builds --package=<package> --reverse
 
-# 2. For each build, get RPM IDs
-curl -sk "https://brewweb.engineering.redhat.com/brew/buildinfo?buildID=<build-id>" | \
-  grep -oP 'rpminfo\?rpmID=\d+' | head -3
-
-# 3. Check if the file exists in that RPM
-curl -sk "https://brewweb.engineering.redhat.com/brew/rpminfo?rpmID=<rpm-id>" | \
-  grep -i "<filename>"
+# Compare two builds
+brew buildinfo <nvr1>
+brew buildinfo <nvr2>
 ```

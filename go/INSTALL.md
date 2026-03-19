@@ -78,6 +78,22 @@ jira init --installation cloud \
   --board "CoreOS Scrum"
 ```
 
+### Koji/Brew CLI
+
+The container includes the Koji CLI with a pre-configured `brew` profile for Red Hat's internal build system. No additional configuration is required.
+
+```bash
+# Using Brew (requires VPN)
+brew search package cri-o
+brew latest-build rhaos-4.18-rhel-9-candidate cri-o
+
+# Using Fedora Koji
+koji search package kernel
+koji latest-build f43 kernel
+```
+
+**Note:** Brew requires Red Hat VPN access. Anonymous read-only operations work without Kerberos authentication.
+
 ### Verify Setup
 
 ```bash
@@ -174,6 +190,7 @@ podman run --rm \
 | `jira` | Jira CLI |
 | `gh` | GitHub CLI |
 | `glab` | GitLab CLI |
+| `koji` / `brew` | Koji/Brew build system CLI |
 | `oc` | OpenShift CLI |
 | `kubectl` | Kubernetes CLI |
 | `podman` | Container management (via host socket) |
