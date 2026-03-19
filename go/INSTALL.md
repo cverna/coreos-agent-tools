@@ -191,6 +191,7 @@ podman run --rm \
 | `gh` | GitHub CLI |
 | `glab` | GitLab CLI |
 | `koji` / `brew` | Koji/Brew build system CLI |
+| `bodhi` | Fedora updates system CLI |
 | `oc` | OpenShift CLI |
 | `kubectl` | Kubernetes CLI |
 | `podman` | Container management (via host socket) |
