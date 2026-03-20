@@ -41,6 +41,37 @@ coreos-tools jenkins builds kola-failures <job-name> <build-number>
 coreos-tools jenkins builds kola-failures <job-name> <build-number> | jq '[.failures[] | select(.rerun_failed == true)]'
 ```
 
+### 4. Analyze Kola Artifacts (if tests failed)
+
+Download and examine kola artifacts when `rerun_failed: true`.
+See "Analyzing Kola Test Artifacts" section below.
+
+### 5. Find Last Known Good Build
+
+```bash
+# Find last successful build for same stream (filter out "no new build" entries)
+coreos-tools jenkins builds list <job-name> --status SUCCESS --stream <stream> -n 20 | \
+  jq '[.[] | select(.description | test("no new build") | not)] | first'
+```
+
+### 6. Compare Builds
+
+```bash
+# Compare packages between good and bad builds
+coreos-tools jenkins builds diff <job> <good-build> <bad-build>
+
+# Compare cosa versions - see "coreos-assembler Regression Detection" section
+```
+
+### 7. Investigate Root Cause
+
+Based on what changed:
+- **Package updates** → Check changelog, see "Package Changelog Investigation"
+- **cosa changes** → Check commits, see "coreos-assembler Regression Detection"
+- **No obvious changes** → Search upstream code, see "Upstream Code Investigation"
+
+---
+
 ## Interpreting Kola Test Failures
 
 The `kola-failures` output includes a `rerun_failed` field:
@@ -56,13 +87,59 @@ The `kola-failures` output includes a `rerun_failed` field:
 2. **Test failures with `rerun_failed: false` only** → Flaky tests, NOT root cause. Check logs for compose/infrastructure errors
 3. **No test failures** → Build/infrastructure failure, analyze logs
 
-## Finding Last Known Good Build
+## Analyzing Kola Test Artifacts
+
+When tests fail with `rerun_failed: true`, download and analyze the kola artifacts:
+
+### Download Kola Artifacts
 
 ```bash
-# Find last successful build for same stream (filter out "no new build" entries)
-coreos-tools jenkins builds list <job-name> --status SUCCESS --stream <stream> -n 20 | \
-  jq '[.[] | select(.description | test("no new build") | not)] | first'
+# List artifacts (look for kola-*.tar.xz files)
+coreos-tools jenkins builds artifacts <job-name> <build-number>
+
+# Download kola artifacts
+coreos-tools jenkins builds artifacts <job-name> <build-number> --download kola-<hash>.tar.xz -o /tmp/kola.tar.xz
+
+# Extract
+mkdir -p /tmp/kola && tar -xf /tmp/kola.tar.xz -C /tmp/kola
 ```
+
+### Artifact Structure
+
+```
+kola/
+├── reports/report.json          # Overall test results
+├── <test-name>/
+│   └── <uuid>/
+│       ├── journal.txt          # systemd journal (primary log)
+│       ├── console.txt          # VM console output
+│       └── ignition.json        # Ignition config used
+└── rerun/                       # Rerun attempts (same structure)
+    └── <test-name>/
+```
+
+### Analyzing Failures
+
+```bash
+# Find test directories
+find /tmp/kola -type d -name "*<test-pattern>*"
+
+# Search for errors in journal
+grep -E "Error:|Failed|error:" /tmp/kola/kola/<test-name>/*/journal.txt
+
+# Check Ignition config for missing files
+cat /tmp/kola/kola/<test-name>/*/ignition.json | jq '.storage'
+
+# Compare initial run vs rerun
+diff /tmp/kola/kola/<test>/*/journal.txt /tmp/kola/kola/rerun/<test>/*/journal.txt
+```
+
+### What to Look For
+
+- **Missing files in Ignition**: Empty `storage` section when files should be injected
+- **Systemd unit failures**: Services failing with exit codes
+- **Kernel errors**: Buffer I/O errors, driver failures
+- **Boot issues**: ignition.firstboot, ostree deployment errors
 
 ## Log Analysis Patterns
 
@@ -96,3 +173,118 @@ coreos-tools jenkins builds list <job-name> -n 5
 # Trigger retry
 coreos-tools jenkins jobs build <job-name> -p STREAM=<stream> -p FORCE=true
 ```
+
+## Package Changelog Investigation
+
+When package updates are suspected as root cause:
+
+### Get Package Build Info
+
+```bash
+# Get build details from Brew
+brew buildinfo <package-nvr>
+
+# Example
+brew buildinfo kernel-6.12.0-211.3.1.el10_2
+```
+
+### Extract Package Changelog
+
+```bash
+# Download src.rpm and get changelog
+brew download-build --rpm <package-nvr>.src.rpm --noprogress
+rpm -qp --changelog <package-nvr>.src.rpm | head -100
+
+# Compare two versions
+rpm -qp --changelog <new-version>.src.rpm > /tmp/new.log
+rpm -qp --changelog <old-version>.src.rpm > /tmp/old.log
+diff /tmp/old.log /tmp/new.log
+```
+
+### Check Package Source Commits (GitLab)
+
+```bash
+# For RHEL packages in GitLab
+glab api "projects/rpms%2F<package>/repository/compare?from=<old-tag>&to=<new-tag>" | \
+  jq -r '.commits[] | "\(.short_id) \(.title)"'
+```
+
+### Key Packages to Investigate
+
+| Package | Impact Area |
+|---------|-------------|
+| kernel/kernel-rt | Boot, drivers, secex, performance |
+| ignition | Firstboot, provisioning |
+| coreos-installer | Installation, zipl (s390x) |
+| ostree/rpm-ostree | Upgrades, deployments |
+| systemd | Services, boot ordering |
+
+## coreos-assembler Regression Detection
+
+When cosa versions differ between good and bad builds:
+
+### Compare cosa Versions
+
+```bash
+# Download cosa version info
+coreos-tools jenkins builds artifacts <job> <bad-build> --download coreos-assembler-git.json -o /tmp/bad-cosa.json
+coreos-tools jenkins builds artifacts <job> <good-build> --download coreos-assembler-git.json -o /tmp/good-cosa.json
+
+# Extract commit SHAs
+cat /tmp/good-cosa.json | jq -r '.git.commit'
+cat /tmp/bad-cosa.json | jq -r '.git.commit'
+```
+
+### Find cosa Changes
+
+```bash
+# List commits between versions
+gh api repos/coreos/coreos-assembler/compare/<old-sha>...<new-sha> \
+  --jq '.commits[] | {sha: .sha[0:7], date: .commit.author.date, message: .commit.message | split("\n")[0]}'
+
+# Check which files changed
+gh api repos/coreos/coreos-assembler/compare/<old-sha>...<new-sha> \
+  --jq '.files[] | {filename: .filename, status: .status, changes: .changes}'
+
+# Get full diff for a specific file
+gh api repos/coreos/coreos-assembler/compare/<old-sha>...<new-sha> \
+  --jq '.files[] | select(.filename == "<file>") | .patch'
+```
+
+## Upstream Code Investigation
+
+For deeper root cause analysis, search upstream CoreOS repositories:
+
+### Search for Code Patterns
+
+```bash
+# Search across CoreOS repos
+gh search code "<pattern>" --repo coreos/coreos-assembler --repo coreos/ignition \
+  --repo coreos/coreos-installer --repo coreos/afterburn \
+  --json repository,path,textMatches
+
+# Search OpenShift repos
+gh search code "<pattern>" --repo openshift/os --json repository,path
+```
+
+### Check Recent Changes to Relevant Files
+
+```bash
+# Get commits for a specific file
+gh api "repos/<org>/<repo>/commits?path=<file>&per_page=10" | \
+  jq '.[] | {sha: .sha[0:7], date: .commit.author.date, message: .commit.message | split("\n")[0]}'
+
+# Get file contents
+gh api repos/<org>/<repo>/contents/<path> --jq '.content' | base64 -d
+```
+
+### Key Repositories
+
+| Repository | Contains |
+|------------|----------|
+| `coreos/coreos-assembler` | Build tools, kola tests, qemu harness |
+| `coreos/ignition` | Provisioning, firstboot |
+| `coreos/coreos-installer` | Installation, s390x zipl, secex |
+| `coreos/afterburn` | Cloud metadata, firstboot completion |
+| `coreos/fedora-coreos-config` | systemd units, overlays |
+| `openshift/os` | RHCOS-specific configs and tests |
