@@ -69,6 +69,7 @@ RUN dnf install -y \
     curl \
     tar \
     podman-remote \
+    ripgrep \
     && dnf clean all \
     && rm -rf /var/cache/dnf
 
@@ -145,9 +146,9 @@ RUN printf '%s\n' \
     '#!/bin/bash' \
     '# Sync OpenCode config files from image to volume' \
     '# Always overwrites to ensure latest version from image' \
-'mkdir -p "$HOME/.config/opencode"' \
-'cp /opt/opencode-config/opencode.json "$HOME/.config/opencode/"' \
-'cp /opt/opencode-config/AGENTS.md "$HOME/.config/opencode/"' \
+    'mkdir -p "$HOME/.config/opencode"' \
+    'cp /opt/opencode-config/opencode.json "$HOME/.config/opencode/"' \
+    'cp /opt/opencode-config/AGENTS.md "$HOME/.config/opencode/"' \
     'mkdir -p "$HOME/.config/opencode/commands"' \
     'cp /opt/opencode-commands/analyze-failures.md "$HOME/.config/opencode/commands/"' \
     'mkdir -p "$HOME/.config/opencode/skills"' \

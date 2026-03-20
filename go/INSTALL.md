@@ -198,6 +198,7 @@ podman run --rm \
 | `jq` | JSON processor |
 | `yq` | YAML processor |
 | `git` | Version control |
+| `ripgrep` | Line-oriented search tool |
 
 ## Shell Alias (Optional)
 
