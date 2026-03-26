@@ -70,6 +70,16 @@ RUN dnf install -y \
     tar \
     podman-remote \
     ripgrep \
+    # Initramfs debugging tools
+    dracut \
+    cpio \
+    zstd \
+    xz \
+    binutils \
+    elfutils \
+    bpftool \
+    dwarves \
+    vim-common \
     && dnf clean all \
     && rm -rf /var/cache/dnf
 
