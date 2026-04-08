@@ -26,3 +26,7 @@ vendor/
 # OS
 .DS_Store
 Thumbs.db
+
+# GCP credentials
+*.service-account.json
+gcp-credentials.json

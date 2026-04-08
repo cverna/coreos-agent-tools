@@ -12,7 +12,14 @@
 # Build locally:
 #   podman build -t coreos-agent -f go/Dockerfile.agent .
 #
-# Run (OpenCode as default):
+# ============================================================================
+# GCP Authentication Methods
+# ============================================================================
+#
+# Option 1: Local Development (gcloud mount)
+# Share your existing gcloud credentials from the host.
+# Prerequisites: Run `gcloud auth application-default login` on your host.
+#
 #   podman run -it --rm \
 #     -v coreos-agent-config:/home/agent/.config \
 #     -v coreos-agent-data:/home/agent/.local \
@@ -23,19 +30,42 @@
 #     -v $(pwd):/workspace \
 #     ghcr.io/cverna/coreos-agent-tools/coreos-agent:latest
 #
-# Volume strategy:
+# Option 2: Pod/VM Deployment (service account)
+# Use a GCP service account JSON file.
+# Prerequisites: Download a service account JSON key from GCP Console.
+#
+#   podman run -it --rm \
+#     -v coreos-agent-config:/home/agent/.config \
+#     -v coreos-agent-data:/home/agent/.local \
+#     -v /path/to/service-account.json:/home/agent/.config/gcloud/application_default_credentials.json:ro \
+#     -e GOOGLE_APPLICATION_CREDENTIALS=/home/agent/.config/gcloud/application_default_credentials.json \
+#     -e GOOGLE_CLOUD_PROJECT=your-project-id \
+#     -v /run/user/501/podman/podman.sock:/run/podman/podman.sock \
+#     --security-opt label=disable \
+#     -e CONTAINER_HOST=unix:///run/podman/podman.sock \
+#     -v $(pwd):/workspace \
+#     ghcr.io/cverna/coreos-agent-tools/coreos-agent:latest
+#
+# ============================================================================
+# Volume Strategy
+# ============================================================================
+#
 #   - coreos-agent-config: Named volume for persistent container config
 #     (gh, jira, opencode, coreos-tools credentials - isolated from host)
 #   - coreos-agent-data: Named volume for persistent application data
 #     (opencode sessions in ~/.local/share, model selection in ~/.local/state)
-#   - ~/.config/gcloud: Bind mount to share gcloud credentials from host
+#   - ~/.config/gcloud: Bind mount to share gcloud credentials from host (Option 1)
+#   - service-account.json: Bind mount for GCP service account (Option 2)
 #   - $(pwd):/workspace: Current directory as workspace
 #
 # Note: On macOS with podman machine, you may need to configure directory
 # sharing for host bind mounts (gcloud, workspace). The named volume works
 # without additional configuration.
 #
-# First-time setup (run inside the container):
+# ============================================================================
+# First-time Setup (run inside the container)
+# ============================================================================
+#
 #   gh auth login
 #   jira init  # requires -e JIRA_API_TOKEN and -e JIRA_AUTH_TYPE=bearer
 #   coreos-tools jenkins profiles create prod --url <jenkins-url> --user <user>

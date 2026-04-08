@@ -57,3 +57,33 @@ verify:
 
 # Run all checks (fmt, lint, test)
 check: fmt lint test
+
+# Container image name
+IMAGE := "ghcr.io/cverna/coreos-agent-tools/coreos-agent:latest"
+
+# Run agent container with gcloud credentials (local development)
+agent-local:
+    podman run -it --rm \
+      -v coreos-agent-config:/home/agent/.config \
+      -v coreos-agent-data:/home/agent/.local \
+      -v ~/.config/gcloud:/home/agent/.config/gcloud:ro \
+      -v /run/user/501/podman/podman.sock:/run/podman/podman.sock \
+      --security-opt label=disable \
+      -e CONTAINER_HOST=unix:///run/podman/podman.sock \
+      -v $(pwd):/workspace \
+      {{IMAGE}}
+
+# Run agent container with service account (pod/VM deployment)
+# Usage: just agent-sa /path/to/service-account.json your-gcp-project-id
+agent-sa SA_PATH GOOGLE_CLOUD_PROJECT:
+    podman run -it --rm \
+      -v coreos-agent-config:/home/agent/.config \
+      -v coreos-agent-data:/home/agent/.local \
+      -v {{SA_PATH}}:/home/agent/.config/gcloud/application_default_credentials.json:ro \
+      -e GOOGLE_APPLICATION_CREDENTIALS=/home/agent/.config/gcloud/application_default_credentials.json \
+      -e GOOGLE_CLOUD_PROJECT={{GOOGLE_CLOUD_PROJECT}} \
+      -v /run/user/501/podman/podman.sock:/run/podman/podman.sock \
+      --security-opt label=disable \
+      -e CONTAINER_HOST=unix:///run/podman/podman.sock \
+      -v $(pwd):/workspace \
+      {{IMAGE}}

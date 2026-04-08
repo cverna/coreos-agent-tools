@@ -109,9 +109,80 @@ Exit the container when done:
 exit
 ```
 
+## GCP Authentication
+
+The container supports two authentication methods for Google Vertex AI:
+
+| Method | Use Case | Prerequisites |
+|--------|----------|---------------|
+| gcloud mount | Local development | `gcloud auth application-default login` on host |
+| Service account | Pod/VM deployment | Service account JSON key from GCP Console |
+
+### Option 1: Local Development (gcloud mount)
+
+Share your existing gcloud credentials from the host. This is the simplest approach for local development.
+
+**Prerequisites:** Run `gcloud auth application-default login` on your host.
+
+```bash
+just agent-local
+```
+
+Or manually:
+
+```bash
+podman run -it --rm \
+  -v coreos-agent-config:/home/agent/.config \
+  -v coreos-agent-data:/home/agent/.local \
+  -v ~/.config/gcloud:/home/agent/.config/gcloud:ro \
+  -v /run/user/501/podman/podman.sock:/run/podman/podman.sock \
+  --security-opt label=disable \
+  -e CONTAINER_HOST=unix:///run/podman/podman.sock \
+  -v $(pwd):/workspace \
+  ghcr.io/cverna/coreos-agent-tools/coreos-agent:latest
+```
+
+### Option 2: Pod/VM Deployment (service account)
+
+Use a GCP service account JSON file. This is required for running in pods, VMs, or CI/CD environments.
+
+**Prerequisites:** Download a service account JSON key from the [GCP Console](https://console.cloud.google.com/iam-admin/serviceaccounts).
+
+```bash
+just agent-sa /path/to/service-account.json your-gcp-project-id
+```
+
+Or manually:
+
+```bash
+podman run -it --rm \
+  -v coreos-agent-config:/home/agent/.config \
+  -v coreos-agent-data:/home/agent/.local \
+  -v /path/to/service-account.json:/home/agent/.config/gcloud/application_default_credentials.json:ro \
+  -e GOOGLE_APPLICATION_CREDENTIALS=/home/agent/.config/gcloud/application_default_credentials.json \
+  -e GOOGLE_CLOUD_PROJECT=your-gcp-project-id \
+  -v /run/user/501/podman/podman.sock:/run/podman/podman.sock \
+  --security-opt label=disable \
+  -e CONTAINER_HOST=unix:///run/podman/podman.sock \
+  -v $(pwd):/workspace \
+  ghcr.io/cverna/coreos-agent-tools/coreos-agent:latest
+```
+
 ## Usage
 
 ### Run OpenCode
+
+Using the justfile recipes (recommended):
+
+```bash
+# Local development with gcloud credentials
+just agent-local
+
+# Pod/VM deployment with service account
+just agent-sa /path/to/service-account.json your-gcp-project-id
+```
+
+Or with the full command:
 
 ```bash
 podman run -it --rm \
@@ -132,7 +203,7 @@ The `/analyze-failures` slash command is pre-installed and can create Jira sub-t
 
 The `coreos-agent-data` volume persists OpenCode sessions and model selection, so you can resume previous conversations.
 
-The gcloud mount and environment variables provide access to additional AI models (e.g., Vertex AI) in OpenCode.
+The GCP credentials (via gcloud mount or service account) provide access to Vertex AI models in OpenCode.
 
 The podman socket mount allows the agent to run containers (e.g., for testing or running tools). The `--security-opt label=disable` is required to access the socket.
 
