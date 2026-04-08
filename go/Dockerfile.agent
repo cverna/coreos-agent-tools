@@ -26,6 +26,7 @@
 #     -v ~/.config/gcloud:/home/agent/.config/gcloud:ro \
 #     -v /run/user/501/podman/podman.sock:/run/podman/podman.sock \
 #     --security-opt label=disable \
+#     -e GH_TOKEN="your-github-token" \
 #     -e CONTAINER_HOST=unix:///run/podman/podman.sock \
 #     -v $(pwd):/workspace \
 #     ghcr.io/cverna/coreos-agent-tools/coreos-agent:latest
@@ -40,6 +41,7 @@
 #     -v /path/to/service-account.json:/home/agent/.config/gcloud/application_default_credentials.json:ro \
 #     -e GOOGLE_APPLICATION_CREDENTIALS=/home/agent/.config/gcloud/application_default_credentials.json \
 #     -e GOOGLE_CLOUD_PROJECT=your-project-id \
+#     -e GH_TOKEN="your-github-token" \
 #     -v /run/user/501/podman/podman.sock:/run/podman/podman.sock \
 #     --security-opt label=disable \
 #     -e CONTAINER_HOST=unix:///run/podman/podman.sock \
@@ -63,17 +65,27 @@
 # without additional configuration.
 #
 # ============================================================================
+# Environment Variables
+# ============================================================================
+#
+#   GH_TOKEN         - GitHub Personal Access Token (for gh CLI)
+#   JIRA_API_TOKEN   - Jira Personal Access Token (for jira CLI)
+#   JIRA_AUTH_TYPE   - Set to "bearer" for Jira token auth
+#   GOOGLE_CLOUD_PROJECT - GCP project ID (for Vertex AI)
+#   GOOGLE_APPLICATION_CREDENTIALS - Path to GCP service account JSON
+#
+# ============================================================================
 # First-time Setup (run inside the container)
 # ============================================================================
 #
-#   gh auth login
 #   jira init  # requires -e JIRA_API_TOKEN and -e JIRA_AUTH_TYPE=bearer
 #   coreos-tools jenkins profiles create prod --url <jenkins-url> --user <user>
 #
-# Example with Jira token:
+# Example with all tokens:
 #   podman run -it --rm \
 #     -v coreos-agent-config:/home/agent/.config \
-#     -e JIRA_API_TOKEN="your-token" \
+#     -e GH_TOKEN="your-github-token" \
+#     -e JIRA_API_TOKEN="your-jira-token" \
 #     -e JIRA_AUTH_TYPE="bearer" \
 #     coreos-agent bash
 #

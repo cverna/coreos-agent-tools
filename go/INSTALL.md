@@ -17,7 +17,7 @@ podman pull ghcr.io/cverna/coreos-agent-tools/coreos-agent:latest
 
 Start an interactive session to configure the tools. You'll need:
 
-- A GitHub account
+- A GitHub Personal Access Token ([how to create one](#github-personal-access-token))
 - A Jenkins API token ([how to create one](#jenkins-api-token))
 - A Jira personal access token ([how to create one](#jira-personal-access-token))
 
@@ -25,6 +25,7 @@ Start an interactive session to configure the tools. You'll need:
 podman run -it \
   -v coreos-agent-config:/home/agent/.config \
   -v coreos-agent-data:/home/agent/.local \
+  -e GH_TOKEN="your-github-token" \
   -e JIRA_API_TOKEN="your-jira-token" \
   ghcr.io/cverna/coreos-agent-tools/coreos-agent:latest bash
 ```
@@ -40,11 +41,17 @@ podman run -it \
 
 ### Configure GitHub CLI
 
+The agent uses a GitHub Personal Access Token (PAT) passed via the `GH_TOKEN` environment variable. Since the skills only access public repositories with read-only operations, minimal permissions are required.
+
+See [GitHub Personal Access Token](#github-personal-access-token) for how to create a token.
+
+Pass the token when running the container:
+
 ```bash
-gh auth login
+-e GH_TOKEN="github_pat_xxxx"
 ```
 
-Follow the prompts to authenticate.
+**Note:** Without a token, GitHub API calls are rate-limited to 60 requests/hour. With a token, the limit is 5,000 requests/hour.
 
 ### Configure GitLab CLI
 For gitlab.com:
@@ -97,7 +104,7 @@ koji latest-build f43 kernel
 ### Verify Setup
 
 ```bash
-gh auth status
+gh auth status           # Should show "Logged in to github.com account ... (GH_TOKEN)"
 glab auth status
 coreos-tools jenkins jobs list
 jira issue list
@@ -276,7 +283,8 @@ podman run --rm \
 Add to your `~/.bashrc` or `~/.zshrc`:
 
 ```bash
-export JIRA_API_TOKEN="your-token"
+export GH_TOKEN="your-github-token"
+export JIRA_API_TOKEN="your-jira-token"
 export GOOGLE_CLOUD_PROJECT="your-gcp-project"
 export VERTEX_LOCATION="global"
 
@@ -287,6 +295,7 @@ alias coreos-agent='podman run -it --rm \
   -v /run/user/501/podman/podman.sock:/run/podman/podman.sock \
   --security-opt label=disable \
   -v $(pwd):/workspace \
+  -e GH_TOKEN="$GH_TOKEN" \
   -e JIRA_API_TOKEN="$JIRA_API_TOKEN" \
   -e GOOGLE_CLOUD_PROJECT="$GOOGLE_CLOUD_PROJECT" \
   -e VERTEX_LOCATION="$VERTEX_LOCATION" \
@@ -297,11 +306,23 @@ alias coreos-agent='podman run -it --rm \
 Then simply run:
 
 ```bash
-coreos-agent          # OpenCode with Jira support
-coreos-agent bash     # Shell with Jira support
+coreos-agent          # OpenCode with GitHub and Jira support
+coreos-agent bash     # Shell with all tools configured
 ```
 
 ## Appendix
+
+### GitHub Personal Access Token
+
+The skills only require read access to public repositories (coreos/*, openshift/os).
+
+1. Go to https://github.com/settings/personal-access-tokens/new
+2. Configure the token:
+   - **Token name:** `coreos-agent`
+   - **Expiration:** 90 days (or as needed)
+   - **Repository access:** Public Repositories (read-only)
+   - **Permissions:** None required (metadata is implicit)
+3. Click "Generate token" and copy the token
 
 ### Jenkins API Token
 
