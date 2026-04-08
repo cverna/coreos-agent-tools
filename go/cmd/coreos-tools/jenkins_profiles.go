@@ -172,6 +172,6 @@ func init() {
 	jenkinsProfilesCreateCmd.Flags().BoolVar(&profileCreateDefault, "default", false,
 		"Set this profile as the default")
 
-	jenkinsProfilesCreateCmd.MarkFlagRequired("url")
-	jenkinsProfilesCreateCmd.MarkFlagRequired("user")
+	_ = jenkinsProfilesCreateCmd.MarkFlagRequired("url")
+	_ = jenkinsProfilesCreateCmd.MarkFlagRequired("user")
 }
