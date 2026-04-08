@@ -84,6 +84,8 @@ gh api "repos/coreos/<repo>/issues/<number>/comments?since=${SINCE_DATE}T00:00:0
 
 **Freshness rule:** Only include items with 2+ recent comments in "Most Active Discussions". Items with 0 recent comments are stale even if total count is high.
 
+> **Important:** Always use `?since=` when fetching comment content too, not just for counting. Without it, `.[-10:]` returns the last 10 comments of *all time*, which may be months old.
+
 ## Statistics Commands
 
 Combine multiple searches, extract a field, and count occurrences:
@@ -109,12 +111,17 @@ Combine multiple searches, extract a field, and count occurrences:
 ```bash
 # Issue/PR details
 gh issue view <number> --repo coreos/<repo> --json title,body,author,state,labels
-gh pr view <number> --repo coreos/<repo> --json title,body,author,state
+gh pr view <number> --repo coreos/<repo> --json title,body,author,state,mergedAt
 
-# Recent comments on an issue
-gh api repos/coreos/<repo>/issues/<number>/comments \
+# Recent comments on an issue/PR (use ?since= to filter to reporting period)
+SINCE_DATE=$(date -d '7 days ago' +%Y-%m-%d)
+gh api "repos/coreos/<repo>/issues/<number>/comments?since=${SINCE_DATE}T00:00:00Z" \
   --jq '.[-10:] | .[] | "**@\(.user.login)** (\(.created_at | split("T")[0])): \(.body | split("\n")[0])"'
 ```
+
+> **PR State Distinction:** A PR with `state: CLOSED` can be either merged or closed without merging. Check `mergedAt`:
+> - `mergedAt` has a timestamp → **MERGED**
+> - `mergedAt` is null → **CLOSED** (without merge)
 
 ## Key Repositories
 
