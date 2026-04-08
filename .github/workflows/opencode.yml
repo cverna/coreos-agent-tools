@@ -33,6 +33,8 @@ jobs:
         env:
           GOOGLE_CLOUD_PROJECT: ${{ secrets.GOOGLE_CLOUD_PROJECT }}
           VERTEX_LOCATION: global
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           model: google-vertex/claude-opus-4-20250514
           prompt: ${{ inputs.prompt }}
+          use_github_token: true
