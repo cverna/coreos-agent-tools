@@ -35,6 +35,6 @@ jobs:
           VERTEX_LOCATION: global
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          model: google-vertex-anthropic/claude-opus-4-20250514
+          model: google-vertex-anthropic/claude-opus-4-5@20251101
           prompt: ${{ inputs.prompt }}
           use_github_token: true
