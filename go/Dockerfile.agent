@@ -99,8 +99,8 @@ LABEL org.opencontainers.image.title="CoreOS Agent Tools"
 LABEL org.opencontainers.image.description="OpenCode AI assistant with CoreOS tools for Jenkins/Jira/OCP management"
 LABEL org.opencontainers.image.source="https://github.com/cverna/coreos-agent-tools"
 
-# Install system packages
-RUN dnf install -y \
+# Install system packages (--setopt=install_weak_deps=False to minimize image size)
+RUN dnf install -y --setopt=install_weak_deps=False \
     jq \
     yq \
     gh \
@@ -112,6 +112,7 @@ RUN dnf install -y \
     tar \
     podman-remote \
     ripgrep \
+    golang \
     # Initramfs debugging tools
     dracut \
     cpio \
