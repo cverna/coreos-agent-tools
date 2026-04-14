@@ -9,6 +9,20 @@ Query OCP release versions, RHCOS container images, and RPM package lists.
 
 > Related: `rhcos-versions`, `rhcos-artifacts`, `rhcos-brew`, `rhcos-build-pipeline`
 
+## CLI Commands Reference
+
+| Command | Purpose |
+|---------|---------|
+| `oc adm release info --rpmdb <image>` | List all RPMs in node image |
+| `oc adm release info --rpmdb-diff <from> <to>` | Get RPM differences between releases |
+| `oc adm release info --image-for rhel-coreos <image>` | Get RHEL 9 RHCOS image reference |
+| `oc adm release info --image-for rhel-coreos-10 <image>` | Get RHEL 10 RHCOS image reference |
+| `oc adm release info --image-for rhel-coreos-extensions <image>` | Get RHEL 9 extensions image reference |
+| `oc adm release info --image-for rhel-coreos-10-extensions <image>` | Get RHEL 10 extensions image reference |
+| `oc image extract <image> --file=<path>` | Extract specific file from image |
+
+> **Note:** `--rpmdb` and `--rpmdb-diff` require `--rpmdb-cache <dir>` to specify a cache directory.
+
 ## Release Controller API
 
 Base URL: `https://amd64.ocp.releases.ci.openshift.org`
@@ -63,8 +77,14 @@ curl -s "https://amd64.ocp.releases.ci.openshift.org/api/v1/releasestreams/accep
 
 ### Get RHCOS Image Reference from Release
 
+OCP 4.22+ includes both RHEL 9 and RHEL 10 based RHCOS images:
+
 ```bash
+# RHEL 9 based RHCOS image
 oc adm release info quay.io/openshift-release-dev/ocp-release:<version>-x86_64 --image-for rhel-coreos
+
+# RHEL 10 based RHCOS image (OCP 4.22+)
+oc adm release info quay.io/openshift-release-dev/ocp-release:<version>-x86_64 --image-for rhel-coreos-10
 ```
 
 ### Get Full Release Info
@@ -75,7 +95,35 @@ oc adm release info quay.io/openshift-release-dev/ocp-release:<version>-x86_64
 
 ## RPM Package Lists
 
-### Extract RPMs from RHCOS Image
+### List RPMs Using oc (Recommended)
+
+Use `oc adm release info --rpmdb` to list RPMs without pulling the full container image:
+
+```bash
+# List all RPMs in RHEL 9 RHCOS node image
+oc adm release info --rpmdb --rpmdb-cache /tmp/rpmdb-cache \
+  --rpmdb-image rhel-coreos \
+  quay.io/openshift-release-dev/ocp-release:<version>-x86_64
+
+# List all RPMs in RHEL 10 RHCOS node image (OCP 4.22+)
+oc adm release info --rpmdb --rpmdb-cache /tmp/rpmdb-cache \
+  --rpmdb-image rhel-coreos-10 \
+  quay.io/openshift-release-dev/ocp-release:<version>-x86_64
+```
+
+> **Note:** The `--rpmdb-cache` flag is required. For recent machine-os images, this operation is fast and efficient. The `--rpmdb-image` flag may be needed for some releases (e.g., EC builds).
+
+### Compare RPMs Between Releases
+
+```bash
+oc adm release info --rpmdb-diff --rpmdb-cache /tmp/rpmdb-cache \
+  quay.io/openshift-release-dev/ocp-release:<from-version>-x86_64 \
+  quay.io/openshift-release-dev/ocp-release:<to-version>-x86_64
+```
+
+### List RPMs Using podman (Alternative)
+
+Use podman when you need to inspect files or run other commands inside the RHCOS image:
 
 ```bash
 # Get RHCOS image reference
@@ -92,17 +140,9 @@ podman run --rm $RHCOS_IMAGE rpm -qa --qf '%{NAME}\n' | sort -u
 
 # Query specific package
 podman run --rm $RHCOS_IMAGE rpm -q kernel
-```
 
-### Compare RPMs Between Releases
-
-```bash
-# Extract RPMs from two releases
-podman run --rm $IMAGE1 rpm -qa | sort > /tmp/rpms1.txt
-podman run --rm $IMAGE2 rpm -qa | sort > /tmp/rpms2.txt
-
-# Compare
-diff /tmp/rpms1.txt /tmp/rpms2.txt
+# Inspect files inside the image
+podman run --rm -it $RHCOS_IMAGE /bin/bash
 ```
 
 ## Multi-Architecture Support
@@ -125,12 +165,10 @@ Replace `amd64` in the URL with other architectures:
 VERSION=$(curl -s "https://amd64.ocp.releases.ci.openshift.org/api/v1/releasestreams/accepted" | \
   jq -r '."4-stable"[] | select(startswith("4.21.") and (contains("-rc") | not))' | head -1)
 
-# 2. Get RHCOS image
-RHCOS=$(oc adm release info quay.io/openshift-release-dev/ocp-release:${VERSION}-x86_64 --image-for rhel-coreos)
-
-# 3. Pull and list RPMs
-podman pull $RHCOS
-podman run --rm $RHCOS rpm -qa --qf '%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n' | sort
+# 2. List all RPMs using oc
+oc adm release info --rpmdb --rpmdb-cache /tmp/rpmdb-cache \
+  --rpmdb-image rhel-coreos \
+  quay.io/openshift-release-dev/ocp-release:${VERSION}-x86_64
 ```
 
 ## RHEL Package Flow to RHCOS
@@ -193,19 +231,50 @@ RHEL-9.8.0-20260308.d.3/
 
 ## Extensions Image Inspection
 
-RHCOS extensions (optional packages) are stored in a separate image. Use this to verify a package is included.
+RHCOS extensions (optional packages) are stored in separate images. OCP 4.22+ includes both RHEL 9 and RHEL 10 extensions.
 
-### Check Extensions Image
+### Get Extensions Image Reference
+
+```bash
+# RHEL 9 extensions
+oc adm release info --image-for rhel-coreos-extensions \
+  quay.io/openshift-release-dev/ocp-release:<version>-x86_64
+
+# RHEL 10 extensions (OCP 4.22+)
+oc adm release info --image-for rhel-coreos-10-extensions \
+  quay.io/openshift-release-dev/ocp-release:<version>-x86_64
+```
+
+### Extract Extensions Metadata Using oc (Recommended)
+
+```bash
+# Get the extensions image reference
+EXTENSIONS_IMAGE=$(oc adm release info --image-for rhel-coreos-extensions \
+  quay.io/openshift-release-dev/ocp-release:<version>-x86_64)
+
+# Extract extensions.json (lists all available extension packages)
+oc image extract $EXTENSIONS_IMAGE --file=usr/share/rpm-ostree/extensions.json
+
+# View the extensions
+cat extensions.json | jq .
+
+# Search for a specific package
+cat extensions.json | jq 'to_entries[] | select(.key | contains("kernel"))'
+```
+
+The `extensions.json` file contains a JSON object mapping package names to their versions.
+
+### Inspect Extensions Using podman (Alternative)
+
+Use podman when you need to list actual RPM files or inspect the image contents:
 
 ```bash
 # List all extension RPMs
-podman run --entrypoint /bin/sh \
-  quay.io/openshift-release-dev/ocp-v4.0-art-dev:4.22-9.8-node-image-extensions \
+podman run --entrypoint /bin/sh $EXTENSIONS_IMAGE \
   -c 'ls /usr/share/rpm-ostree/extensions/*.rpm'
 
 # Check for a specific package
-podman run --entrypoint /bin/sh \
-  quay.io/openshift-release-dev/ocp-v4.0-art-dev:4.22-9.8-node-image-extensions \
+podman run --entrypoint /bin/sh $EXTENSIONS_IMAGE \
   -c 'ls /usr/share/rpm-ostree/extensions/resource*.rpm'
 ```
 
@@ -217,6 +286,7 @@ quay.io/openshift-release-dev/ocp-v4.0-art-dev:<ocp-version>-<rhel-version>-node
 
 Examples:
 - `4.22-9.8-node-image-extensions` - OCP 4.22 with RHEL 9.8
+- `4.22-10.2-node-image-extensions` - OCP 4.22 with RHEL 10.2
 - `4.21-9.6-node-image-extensions` - OCP 4.21 with RHEL 9.6
 
 ## Monitoring RHCOS Builds
@@ -267,8 +337,16 @@ Look for nightly composes (`.n.#` suffix) and check the relevant repo (BaseOS, A
 ### Step 4: Verify in Extensions Image
 
 ```bash
-podman run --entrypoint /bin/sh \
-  quay.io/openshift-release-dev/ocp-v4.0-art-dev:<version>-node-image-extensions \
+# Get extensions image
+EXTENSIONS_IMAGE=$(oc adm release info --image-for rhel-coreos-extensions \
+  quay.io/openshift-release-dev/ocp-release:<version>-x86_64)
+
+# Extract and search extensions.json for a package
+oc image extract $EXTENSIONS_IMAGE --file=usr/share/rpm-ostree/extensions.json
+cat extensions.json | jq 'to_entries[] | select(.key | contains("<package>"))'
+
+# Alternative: use podman to list RPM files
+podman run --entrypoint /bin/sh $EXTENSIONS_IMAGE \
   -c 'ls /usr/share/rpm-ostree/extensions/<package>*.rpm'
 ```
 
