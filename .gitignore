@@ -1,4 +1,5 @@
 .env
+go/openshift/*
 
 # Nested clone / local workflow experiments (not part of this repo)
 workflows/
