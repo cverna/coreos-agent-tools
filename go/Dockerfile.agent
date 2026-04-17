@@ -188,13 +188,16 @@ RUN mkdir -p /home/agent/.config /home/agent/.local && \
 # When ~/.config is mounted as a volume, these files need to be copied on first run.
 # We store copies in /opt for reference and provide an init script.
 COPY go/analyze-failures.md /opt/opencode-commands/analyze-failures.md
+COPY go/pipeline-status.md /opt/opencode-commands/pipeline-status.md
+COPY go/pipeline-triage.md /opt/opencode-commands/pipeline-triage.md
 COPY go/opencode.json /opt/opencode-config/opencode.json
 COPY go/AGENTS.container.md /opt/opencode-config/AGENTS.md
 COPY go/skills/ /opt/opencode-skills/
+COPY go/agents/ /opt/opencode-agents/
 COPY go/opencode-plugins/ /opt/opencode-plugins/
 
 # Create an init script to sync config files on every run
-# This ensures new skills/commands are available after image updates
+# This ensures new skills/commands/agents are available after image updates
 RUN printf '%s\n' \
     '#!/bin/bash' \
     '# Sync OpenCode config files from image to volume' \
@@ -203,9 +206,11 @@ RUN printf '%s\n' \
     'cp /opt/opencode-config/opencode.json "$HOME/.config/opencode/"' \
     'cp /opt/opencode-config/AGENTS.md "$HOME/.config/opencode/"' \
     'mkdir -p "$HOME/.config/opencode/commands"' \
-    'cp /opt/opencode-commands/analyze-failures.md "$HOME/.config/opencode/commands/"' \
+    'cp /opt/opencode-commands/*.md "$HOME/.config/opencode/commands/"' \
     'mkdir -p "$HOME/.config/opencode/skills"' \
     'cp -r /opt/opencode-skills/* "$HOME/.config/opencode/skills/"' \
+    'mkdir -p "$HOME/.config/opencode/agents"' \
+    'cp /opt/opencode-agents/*.md "$HOME/.config/opencode/agents/"' \
     'mkdir -p "$HOME/.config/opencode/plugins"' \
     'cp /opt/opencode-plugins/*.ts "$HOME/.config/opencode/plugins/" 2>/dev/null || true' \
     'mkdir -p "$HOME/.config/opencode/heartbeat"' \
