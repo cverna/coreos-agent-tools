@@ -23,6 +23,8 @@ Load and follow **`pipeline-triage-workflow`** skill end-to-end:
 
 Use **`pipeline-failures`** skill for kola interpretation, log grep patterns, and "last known good" commands.
 
+Use **`rhcos-repositories`** skill to find test source code, package definitions, and upstream repo locations.
+
 ## Commands
 
 ```bash

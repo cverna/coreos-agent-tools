@@ -143,17 +143,35 @@ Each build failure should be its own sub-task (including retries that failed).
 - **Job**: <job-name>
 - **Build**: #<build-number>
 - **Stream**: <stream>
+- **Architecture**: <arch>
 - **Timestamp**: <timestamp>
 - **Duration**: <duration>
 - **Jenkins URL**: <url>
 
 ## Root Cause Analysis
-<description of what caused the failure>
+- **Classification**: <infrastructure | flake | test_regression | package_change | registry_auth | tooling | unknown>
+- **Confidence**: <low | medium | high>
 
-## Error Messages
+<detailed explanation of what caused the failure, including reasoning>
+
+## Evidence
+
+### Log Excerpt
 ```
-<error messages in code blocks>
+<key error lines from console log>
 ```
+
+### Patterns Observed
+- <pattern 1>
+- <pattern 2>
+
+## Upstream Links
+<!-- Include any relevant links discovered during investigation -->
+- **Related Issues**: <GitHub/GitLab issue URLs>
+- **Related PRs**: <PR URLs>
+- **Related Commits**: <commit URLs if change was identified>
+- **Package Build**: <Brew build URL if package change>
+- **Test Source**: <link to test code in upstream repo>
 
 ## Resolution
 - **Status**: <resolved/unresolved/retry-pending>

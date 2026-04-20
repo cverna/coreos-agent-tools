@@ -38,6 +38,32 @@ Load **`pipeline-jira`** skill for:
 3. Include **build URL**, **stream/arch**, **short log excerpt or line pointer**, and **classification**.
 4. For "route to RHEL": state **what evidence** would be needed (package delta, NVRA, linked Brew/Jira).
 
+## Mapping investigator output to Jira body
+
+When creating the Jira description from `@pipeline-investigator` output:
+
+1. **From `### Gather`**:
+   - Job, build, stream, arch, timestamp, duration, URL → **Build Details**
+
+2. **From `### Classify`**:
+   - Classification category → **Root Cause Analysis > Classification**
+   - Confidence level → **Root Cause Analysis > Confidence**
+   - Reasoning bullets → **Root Cause Analysis** description
+
+3. **From `### Logs (excerpt)`**:
+   - Key error lines → **Evidence > Log Excerpt**
+   - Patterns observed → **Evidence > Patterns Observed**
+
+4. **From `### Upstream Links`**:
+   - GitHub/GitLab issues → **Upstream Links > Related Issues**
+   - PRs → **Upstream Links > Related PRs**
+   - Commits → **Upstream Links > Related Commits**
+   - Brew builds → **Upstream Links > Package Build**
+   - Test source → **Upstream Links > Test Source**
+
+5. **From `### Triage summary`**:
+   - Suggested next steps → **Resolution > Status** and recommendations
+
 ## Output format
 
 ```markdown

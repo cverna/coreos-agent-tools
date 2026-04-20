@@ -106,9 +106,51 @@ coreos-tools jenkins builds kola-failures <JOB> <BUILD>
 
 ---
 
+## Stage 5 — Upstream Links (optional but recommended)
+
+**Agent role:** Find relevant upstream references for the failure.
+
+**When to search:**
+- Test failures → find test source code
+- Package changes → find Brew build, changelog
+- cosa changes → find coreos-assembler commits
+- Known issues → search for existing GitHub/GitLab issues
+
+**Load skills:**
+- `rhcos-repositories` — repo locations and test paths
+- `rhcos-brew` — package build info
+- `pipeline-failures` — has `gh search` commands
+
+**Commands:**
+
+```bash
+# Find test source (use rhcos-repositories to determine which repo)
+gh search code "<test-name>" --repo coreos/coreos-assembler --repo openshift/os \
+  --json repository,path,url
+
+# Search for related issues
+gh search issues "<error-pattern>" --repo coreos/coreos-assembler --repo openshift/os \
+  --json repository,title,url,state
+
+# Get Brew build info (if package change)
+brew buildinfo <package-nvr>
+```
+
+**Output:**
+
+```markdown
+### Upstream Links
+- **Test source:** <url to test file>
+- **Related issues:** <issue URLs or "None found">
+- **Related PRs:** <PR URLs or "None found">
+- **Package build:** <Brew URL if applicable>
+```
+
+---
+
 ## GATE — Human checkpoint (no Jira / no rerun without approval)
 
-**Stop.** Present the **Gather → Logs → Classify → Summarize** sections to the user.
+**Stop.** Present the **Gather → Logs → Classify → Summarize → Upstream Links** sections to the user.
 
 **Default policy:** Only **suggest** Jira text or rerun. Do **not** run `jira issue create` or `coreos-tools jenkins jobs build` unless the user **explicitly** asks.
 
@@ -118,7 +160,7 @@ After approval, use **`pipeline-jira`** skill for COS conventions and commands.
 
 ## Execution rules
 
-1. Complete **Stages 1–4 in order** in one run when the user provides `JOB` and `BUILD`.
+1. Complete **Stages 1–5 in order** in one run when the user provides `JOB` and `BUILD`.
 2. Ask for **JOB** and **BUILD** only if missing; do not ask "what next?" between stages.
 3. On CLI errors (auth, network), stop and report; do not invent build data.
 4. Use **`coreos-tools jenkins`** commands (Go CLI in the container).
