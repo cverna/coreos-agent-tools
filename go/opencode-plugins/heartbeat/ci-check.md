@@ -31,19 +31,16 @@ For each triaged failure, use **@pipeline-handoff** to create Jira subtasks.
 
 **Note:** `@pipeline-handoff` handles deduplication automatically by loading the `pipeline-jira` skill and checking for existing issues before creating subtasks.
 
-**Auto-create:**
+**Auto-create for all classifications:**
 - `infrastructure`
 - `registry_auth`
 - `package_change`
 - `flake`
 - `test_regression`
 - `tooling`
-
-**Draft only** (flag for human review):
 - `unknown`
 
 ### Output
 Only if issues found, summarize:
 - Failures discovered and clusters identified
 - Jira issues created (with links)
-- Draft issues pending human review (if any)
