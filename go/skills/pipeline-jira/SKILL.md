@@ -60,14 +60,69 @@ The COS project is used for CoreOS-related issues.
 
 ### Pipeline Monitoring Tasks
 
-Weekly Pipeline Monitoring tasks track CI failures:
+Weekly Pipeline Monitoring tasks track CI failures.
+
+**Naming convention:** `Pipeline monitoring - Sprint NNN - Ws YYYYMMDD`
+- `Ws` = Week starting (Monday)
+- One task per week
+
+**Find current week's monitoring task:**
 
 ```bash
-# Find current week's monitoring task
-jira issue list --project COS --type Task -q "summary ~ 'Pipeline Monitoring'" --plain
+# Calculate Monday of current week
+DOW=$(date +%u)
+if [ "$DOW" -eq 1 ]; then
+  MONDAY=$(date +%Y%m%d)
+else
+  MONDAY=$(date -d "last monday" +%Y%m%d)
+fi
+
+# Find this week's monitoring task
+PARENT=$(jira issue list --project COS --type Task \
+  -q "summary ~ 'Pipeline monitoring' AND summary ~ '$MONDAY'" \
+  --plain --no-headers | head -1 | awk '{print $2}')
 ```
 
-### Sub-task Structure
+## Pre-Creation Deduplication
+
+Before creating any subtask, run these checks to avoid duplicates.
+
+### Step 1: Exact Build Match
+
+Check if this exact build already has a subtask:
+
+```bash
+jira issue list --parent $PARENT \
+  -q "summary ~ '<job> #<build-number>'" --plain --no-headers
+```
+
+**If results found → STOP, do not create duplicate.**
+
+### Step 2: Similar Failure Check
+
+Query for open subtasks with same job, stream, and architecture:
+
+```bash
+jira issue list --parent $PARENT -s~Closed \
+  -q "summary ~ '<job>' AND summary ~ '<stream>' AND summary ~ '<arch>'" \
+  --plain --no-headers
+```
+
+**If results found → Review the existing issues and decide:**
+- **Same root cause** → Add comment to existing issue instead of creating new
+- **Different root cause** → Proceed with creating new subtask
+
+**Comment template for duplicate occurrences:**
+
+```bash
+jira issue comment add <EXISTING-KEY> $'Additional occurrence detected:
+- **Build:** [#<build>](<jenkins-url>)
+- **Timestamp:** <timestamp>
+
+Same failure pattern - consolidating under this issue.' --no-input
+```
+
+## Sub-task Structure
 
 Each build failure should be its own sub-task (including retries that failed).
 

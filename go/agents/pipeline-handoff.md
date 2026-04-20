@@ -25,9 +25,18 @@ Load **`pipeline-jira`** skill for:
 
 ## Checks before drafting
 
-1. Map failure to **owner hypothesis** (CoreOS pipeline vs RHEL package vs registry/infra vs test flake).
-2. Include **build URL**, **stream/arch**, **short log excerpt or line pointer**, and **classification**.
-3. For "route to RHEL": state **what evidence** would be needed (package delta, NVRA, linked Brew/Jira).
+1. **Deduplication check (REQUIRED)**
+   - Load `pipeline-jira` skill for parent task lookup and deduplication commands
+   - Run exact build match check
+   - If exact match exists: report "Already tracked by <KEY>" and **stop**
+   - Run similar failure check (job/stream/arch)
+   - If similar issues found: compare summaries and decide if same root cause
+     - **Same root cause** → draft a comment for existing issue
+     - **Different root cause** → proceed with new subtask
+
+2. Map failure to **owner hypothesis** (CoreOS pipeline vs RHEL package vs registry/infra vs test flake).
+3. Include **build URL**, **stream/arch**, **short log excerpt or line pointer**, and **classification**.
+4. For "route to RHEL": state **what evidence** would be needed (package delta, NVRA, linked Brew/Jira).
 
 ## Output format
 
@@ -47,5 +56,6 @@ Reply **yes** to create/update Jira with this text, or edit the draft first.
 
 ## Anti-noise rules (from team discussion)
 
-- Prefer **one ticket per distinct root cause**; avoid spamming duplicate subtasks for the same underlying failure pattern.
-- Do **not** auto-open issues; wait for human confirmation unless policy changes.
+- **One ticket per distinct root cause** — always run deduplication checks first
+- **Always load `pipeline-jira` skill** for deduplication before creating subtasks
+- For recurring failures with same root cause, **add comments** to existing open issues

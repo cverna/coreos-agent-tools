@@ -20,27 +20,18 @@ If multiple failures exist, use **@cross-build-analyst** to:
 - Identify duplicates vs unique problems
 - Note: `build-arch` failures trigger `build` failures - track only `build-arch`
 
-### Step 3: Jira Deduplication
-For each failure cluster, check if a Jira subtask already exists:
-```bash
-jira issue list -q "project = COS AND type = Sub-task AND summary ~ '<job> <stream>'" --plain
-```
-Skip any failure that already has a tracking issue.
-
-If all failures already have Jira issues, stop here silently.
-
-### Step 4: Triage New Failures
-For each NEW failure (no existing Jira), use **@pipeline-investigator** to:
+### Step 3: Triage Failures
+For each failure, use **@pipeline-investigator** to:
 - Gather build metadata and logs
 - Classify: `infrastructure` | `flake` | `test_regression` | `package_change` | `registry_auth` | `tooling` | `unknown`
 - Produce triage summary
 
-### Step 5: Create Jira
-Load the **`pipeline-jira`** skill to find the current Pipeline Monitoring parent task.
+### Step 4: Create Jira
+For each triaged failure, use **@pipeline-handoff** to create Jira subtasks.
 
-For each triaged failure, use **@pipeline-handoff** to create Jira subtasks:
+**Note:** `@pipeline-handoff` handles deduplication automatically by loading the `pipeline-jira` skill and checking for existing issues before creating subtasks.
 
-**Auto-create** (no human gate):
+**Auto-create:**
 - `infrastructure`
 - `registry_auth`
 - `package_change`
