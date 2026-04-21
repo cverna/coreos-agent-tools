@@ -35,6 +35,30 @@ coreos-tools jenkins builds list <job-name> --last 5
 coreos-tools jenkins builds info <job-name> <build-number>
 ```
 
+## Skipping Parent Build Failures
+
+The `build` job triggers `build-arch` jobs for aarch64, ppc64le, and s390x. When a `build-arch` job fails, its parent `build` job also fails. We only need to track the `build-arch` failure (where the actual error occurred).
+
+**Always process `build-arch` failures before `build` failures:**
+
+1. List recent `build-arch` failures:
+   ```bash
+   coreos-tools jenkins builds list build-arch --status FAILURE --last 20
+   ```
+
+2. For each `build-arch` failure, extract the parent `build` number:
+   ```bash
+   coreos-tools jenkins builds info build-arch <build-number> | \
+     jq -r '.actions[] | select(._class == "hudson.model.CauseAction") | .causes[] | .shortDescription' | \
+     grep -oE '[0-9,]+$' | tr -d ','
+   ```
+
+3. Collect these parent build numbers — these will be skipped
+
+4. When processing `build` failures:
+   - If the build number has a failed `build-arch` child → skip (child job failed)
+   - Otherwise → run normal deduplication
+
 ## Filtering Already-Tracked Failures
 
 Load **`pipeline-dedup`** skill and run deduplication for each failure:
@@ -70,19 +94,21 @@ For **open** subtasks in the current week's parent task, check if a later succes
 ## Checks you always perform
 
 1. List jobs; note **color red** / unstable.
-2. For the main **`build`** job (or the job the user names), list **recent failures** with timestamps and build numbers.
-3. **Filter out already-tracked failures** by checking against Jira subtasks in the current week's parent task.
-4. **Auto-close resolved failures** — for open subtasks where a later successful build exists.
-5. If comparing multiple jobs for "most recent failure," use **build timestamps**, not guesswork.
-6. Summarize **recommended triage targets** (job + build) for handoff to **@pipeline-investigator**, or report "all failures already tracked" if none are new.
+2. List **`build-arch` failures first** — extract parent `build` numbers.
+3. List **`build`** failures — skip any where a child `build-arch` job failed.
+4. **Filter out already-tracked failures** by checking against Jira subtasks in the current week's parent task.
+5. **Auto-close resolved failures** — for open subtasks where a later successful build exists.
+6. If comparing multiple jobs for "most recent failure," use **build timestamps**, not guesswork.
+7. Summarize **recommended triage targets** (job + build) for handoff to **@pipeline-investigator**, or report "all failures already tracked" if none are new.
 
 ## Output format
 
 ```markdown
 ## Pipeline Monitor — Summary
 - **Jobs in bad state:** …
-- **Failures found:** N total, M already tracked, K new
+- **Failures found:** N total, M already tracked, P skipped (child job failed), K new
 - **Already tracked (skipped):** COS-XXXX (#build1), COS-YYYY (#build2), …
+- **Skipped (child job failed):** build #4185 (see build-arch #4357), …
 - **Auto-closed (resolved):** COS-XXXX (superseded by <job> #N), …
 - **New failures to triage:** `<job>` / `<build-number>`, …
 - **Recommended triage target:** `<job>` / `<build-number>` (or "None - all failures already tracked")
