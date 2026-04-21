@@ -9,6 +9,23 @@ Knowledge for investigating Jenkins CI pipeline failures in the CoreOS build sys
 
 > Related: `rhcos-build-pipeline` (Jenkins jobs), `rhcos-artifacts` (artifacts, diffs, cosa comparison), `pipeline-jira` (creating failure issues)
 
+## Jenkins Job Hierarchy
+
+Understanding the job hierarchy is critical to avoid analyzing the wrong logs:
+
+| Job | Has downstream? | Analysis approach |
+|-----|-----------------|-------------------|
+| `build` | **Yes** → triggers `build-arch` per-arch | Check console for which arch failed, then analyze that `build-arch` job |
+| `build-arch` | **No** (leaf job) | Analyze directly - kola tests run here |
+| `build-node-image` | **No** (independent pipeline) | Analyze directly - does NOT trigger `build-arch` |
+
+**Critical:** `build-node-image` is a **separate pipeline** from `build`/`build-arch`. When investigating `build-node-image`:
+- Analyze its console log directly
+- Do NOT look for "downstream" `build-arch` jobs - there are none
+- A `build-arch` job running at the same time is **coincidental**, not related
+
+**Stream validation:** Always verify the stream matches. A `build-node-image` failure for stream `4.21-9.6` cannot be caused by a `build-arch` for stream `rhel-10.2` - they are completely unrelated builds.
+
 ## Investigation Workflow
 
 ### 1. Identify the Failure

@@ -13,6 +13,23 @@ Run **one failed build** through a **fixed sequence** of stages. Each stage has 
 
 ---
 
+## Jenkins Job Hierarchy (know before you start)
+
+| Job | Has downstream? | Analysis approach |
+|-----|-----------------|-------------------|
+| `build` | **Yes** → triggers `build-arch` per-arch | Check console for which arch failed, then analyze that `build-arch` child job |
+| `build-arch` | **No** (leaf job) | Analyze directly - kola tests run here |
+| `build-node-image` | **No** (independent pipeline) | Analyze directly - does NOT trigger `build-arch` |
+
+**Critical:** `build-node-image` is a **separate pipeline** from `build`/`build-arch`. If investigating a `build-node-image` failure:
+- Analyze its console log directly
+- Do NOT search for "downstream" `build-arch` jobs - there are none
+- A `build-arch` job running at the same time is **coincidental**, not related
+
+**Stream validation:** Always verify streams match. A failure in `build-node-image` for stream `4.21-9.6` cannot be caused by `build-arch` for stream `rhel-10.2`.
+
+---
+
 ## Stage 1 — Gather (build metadata)
 
 **Agent role:** Collect facts about the failing build.
