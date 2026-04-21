@@ -12,6 +12,7 @@ Use **@pipeline-monitor** to:
 - List all jobs in red/unstable state (ignore currently running)
 - Identify recent failures with build numbers and timestamps
 - Filter out already-tracked failures using Jira as memory
+- Auto-close open subtasks where a later successful build exists for the same job+stream(+arch)
 
 If no new failures found, stop here silently.
 

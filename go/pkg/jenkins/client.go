@@ -232,6 +232,15 @@ func extractParamFromActions(actions []BuildAction, paramName string) string {
 	return ""
 }
 
+// extractStream tries STREAM parameter first (build, build-arch jobs),
+// then falls back to RELEASE (build-node-image job).
+func extractStream(actions []BuildAction) string {
+	if s := extractParamFromActions(actions, "STREAM"); s != "" {
+		return s
+	}
+	return extractParamFromActions(actions, "RELEASE")
+}
+
 // ListBuilds returns a list of builds for a job.
 func (c *Client) ListBuilds(jobName string, limit int) ([]BuildSummary, error) {
 	endpoint := fmt.Sprintf("/%s/api/json", encodeJobPath(jobName))
@@ -268,7 +277,7 @@ func (c *Client) ListBuilds(jobName string, limit int) ([]BuildSummary, error) {
 			Building:    b.Building,
 			Duration:    b.Duration,
 			Timestamp:   time.UnixMilli(b.Timestamp),
-			Stream:      extractParamFromActions(b.Actions, "STREAM"),
+			Stream:      extractStream(b.Actions),
 			Description: b.Description,
 		})
 	}
@@ -313,8 +322,8 @@ func (c *Client) GetKolaFailures(jobName string, buildNumber int) (*KolaFailureS
 		return nil, fmt.Errorf("failed to get build info: %w", err)
 	}
 
-	// Extract stream from build parameters (STREAM parameter in actions)
-	stream := extractParamFromActions(buildInfo.Actions, "STREAM")
+	// Extract stream from build parameters (STREAM or RELEASE)
+	stream := extractStream(buildInfo.Actions)
 
 	// Parse kola failures from log
 	// Pattern: --- \x1b[31mFAIL\x1b[0m: <test-name> (<duration>s)
@@ -538,7 +547,7 @@ func (c *Client) ComputePackageDiff(jobName string, build1, build2 int) (*Comput
 	buildInfo, err := c.GetBuildInfo(jobName, build2)
 	stream := ""
 	if err == nil {
-		stream = extractParamFromActions(buildInfo.Actions, "STREAM")
+		stream = extractStream(buildInfo.Actions)
 	}
 
 	// Build maps: package_name -> full_package_string

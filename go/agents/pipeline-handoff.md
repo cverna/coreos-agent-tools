@@ -85,3 +85,4 @@ Reply **yes** to create/update Jira with this text, or edit the draft first.
 - **One ticket per distinct root cause** — always run deduplication checks first
 - **Always load `pipeline-jira` skill** for deduplication before creating subtasks
 - For recurring failures with same root cause, **add comments** to existing open issues
+- **Always use the full Jenkins stream** in the subtask summary (e.g., `4.22-9.8` not `4.22`). The stream value comes from the Jenkins build parameters and is needed for automated matching.

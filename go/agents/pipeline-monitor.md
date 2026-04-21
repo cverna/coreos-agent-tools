@@ -46,13 +46,34 @@ Use Jira as memory to avoid re-investigating known failures. Fetch all tracked b
    - **If found** → Skip (already tracked)
    - **If not found** → Include in the failure list for investigation
 
+## Auto-closing Resolved Failures
+
+For **open** subtasks in the current week's parent task, check if a later successful build exists. If so, the failure was transient and the subtask can be closed automatically.
+
+**For each open subtask:**
+1. Parse the summary to extract: `job`, `build number`, `stream`, and `arch` (if present)
+2. Skip subtasks with unparseable build numbers (e.g., multi-build `#4164-4167`)
+3. Query Jenkins for recent successes:
+   ```bash
+   coreos-tools jenkins builds list <job> --status SUCCESS --stream <stream> --last 5
+   ```
+4. Check if a later successful build exists:
+   - **`build-arch`:** Match stream **and** arch — parse `[stream][arch]` from the description field. If any SUCCESS build# > failed build# with matching arch → close
+   - **`build` / `build-node-image`:** Stream match only (these are arch-agnostic). If any SUCCESS build# > failed build# → close
+5. Close resolved subtasks:
+   ```bash
+   jira issue move <KEY> "Closed"
+   jira issue comment add <KEY> "Auto-closed: successful build <job> #<N> for stream <stream> confirms this failure was transient."
+   ```
+
 ## Checks you always perform
 
 1. List jobs; note **color red** / unstable.
 2. For the main **`build`** job (or the job the user names), list **recent failures** with timestamps and build numbers.
 3. **Filter out already-tracked failures** by checking against Jira subtasks in the current week's parent task.
-4. If comparing multiple jobs for "most recent failure," use **build timestamps**, not guesswork.
-5. Summarize **recommended triage targets** (job + build) for handoff to **@pipeline-investigator**, or report "all failures already tracked" if none are new.
+4. **Auto-close resolved failures** — for open subtasks where a later successful build exists.
+5. If comparing multiple jobs for "most recent failure," use **build timestamps**, not guesswork.
+6. Summarize **recommended triage targets** (job + build) for handoff to **@pipeline-investigator**, or report "all failures already tracked" if none are new.
 
 ## Output format
 
@@ -61,6 +82,7 @@ Use Jira as memory to avoid re-investigating known failures. Fetch all tracked b
 - **Jobs in bad state:** …
 - **Failures found:** N total, M already tracked, K new
 - **Already tracked (skipped):** COS-XXXX (#build1), COS-YYYY (#build2), …
+- **Auto-closed (resolved):** COS-XXXX (superseded by <job> #N), …
 - **New failures to triage:** `<job>` / `<build-number>`, …
 - **Recommended triage target:** `<job>` / `<build-number>` (or "None - all failures already tracked")
 - **Why this pick:** …

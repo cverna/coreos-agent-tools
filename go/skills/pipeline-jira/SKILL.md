@@ -128,12 +128,15 @@ Each build failure should be its own sub-task (including retries that failed).
 
 **Summary format:**
 ```
-<job> #<build-number> - <stream> <brief-description>
+<job> #<build-number> - <stream> [arch] <brief-description>
 ```
+
+**Important:** Always use the **full Jenkins stream** (e.g., `4.22-9.8` not `4.22`). The stream value comes from the Jenkins build parameters (`STREAM` or `RELEASE`). For `build-arch`, include the architecture after the stream.
 
 **Examples:**
 - `build #3456 - rhel-9.6 kernel regression in selinux test`
-- `build-arch #1234 - c9s compose failure - repo timeout`
+- `build-arch #1234 - c9s s390x compose failure - repo timeout`
+- `build-node-image #4216 - 4.20-9.6 TLS handshake timeout`
 - `release #789 - rhel-9.8 extensions-container build failed`
 
 ### Sub-task Body Structure
