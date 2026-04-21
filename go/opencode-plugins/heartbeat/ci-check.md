@@ -7,41 +7,63 @@ interval: 60m
 Perform a pipeline health check using the agent workflow. Only report if issues are found.
 
 ### Step 1: Discovery
+
 Use **@pipeline-monitor** to:
 - Check `build`, `build-arch`, and `build-node-image` jobs
 - List all jobs in red/unstable state (ignore currently running)
-- Identify recent failures with build numbers and timestamps
-- Filter out already-tracked failures using Jira as memory
-- Auto-close open subtasks where a later successful build exists for the same job+stream(+arch)
+- Filter using 3-pass deduplication:
+  - **EXACT_MATCH** → skip (already tracked)
+  - **RELATED_ISSUE** → add comment to existing ticket, skip triage
+  - **SEMANTIC_MATCH** → add comment to existing ticket, skip triage
+- Auto-close open subtasks where a later successful build exists
 
-**Deduplication rules:**
-- **EXACT_MATCH**: Jira issue summary contains this exact build number → Skip triage
-- **RELATED_ISSUE**: Open Jira exists for same job+stream+arch (even if different build number) → Skip triage, just add a comment to the existing issue
-- **NEW_FAILURE**: No Jira issue found for this job+stream+arch → Proceed to triage
+For each **NEW_FAILURE**, add a todo:
+```
+[pending] TRIAGE | <job> | #<build> | <stream> | <arch>
+```
 
 If no new failures found, stop here silently.
 
-### Step 2: Triage Failures
-For each **NEW_FAILURE** only (not RELATED_ISSUE), use **@pipeline-investigator** to:
+### Step 2: Triage
+
+For each pending TRIAGE todo, use **@pipeline-investigator** to:
 - Gather build metadata and logs
-- Classify: `infrastructure` | `flake` | `test_regression` | `package_change` | `registry_auth` | `tooling` | `unknown`
-- Produce triage summary
+- Classify the failure
+- Produce triage summary with **ROOT_CAUSE**
 
-### Step 3: Create Jira
-For each triaged failure, use **@pipeline-handoff** to create Jira subtasks.
+Update todo when complete:
+```
+[completed] TRIAGE | <job> | #<build> | <stream> | <arch> | ROOT_CAUSE: <description>
+```
 
-**Note:** `@pipeline-handoff` handles deduplication automatically by loading the `pipeline-jira` skill and checking for existing issues before creating subtasks.
+### Step 3: Cluster by Root Cause
 
-**Auto-create for all classifications:**
-- `infrastructure`
-- `registry_auth`
-- `package_change`
-- `flake`
-- `test_regression`
-- `tooling`
-- `unknown`
+Review all completed TRIAGE todos and group by similar ROOT_CAUSE.
+
+Use judgment to identify the same underlying issue across different streams/builds:
+- "NetworkManager skew" and "NM version mismatch" → same cluster
+- "SSH timeout to aarch64 builder" across multiple builds → same cluster
+- "chronyd failure in kernel-replace" on different streams → same cluster
+
+Create todos for Jira creation (one per cluster):
+```
+[pending] JIRA | <root_cause_summary> | builds: #X, #Y, #Z
+```
+
+### Step 4: Create Jira
+
+For each pending JIRA todo, use **@pipeline-handoff** to create **ONE subtask per cluster**.
+
+Include all affected builds in the ticket description.
+
+Mark todo completed with Jira key:
+```
+[completed] JIRA | <root_cause_summary> | COS-XXXX
+```
 
 ### Output
+
 Only if issues found, summarize:
 - New failures discovered and triaged
+- Clusters identified (with member builds)
 - Jira issues created (with links)

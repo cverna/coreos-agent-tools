@@ -62,6 +62,33 @@ coreos-tools jenkins builds diff <job-name> <good-build> <bad-build>
 
 Use the markdown sections defined in **`pipeline-triage-workflow`**: `### Gather`, `### Logs (excerpt)`, `### Classify`, `### Triage summary`.
 
+**Required in Triage summary — ROOT_CAUSE:**
+
+Always include a `**ROOT_CAUSE:**` line in your triage summary. This is used for clustering related failures across different streams/builds.
+
+ROOT_CAUSE should be:
+- Short (under 60 characters)
+- Consistent across similar failures (use same wording for same issue)
+- Include package/service name when relevant
+- Include test name for test failures
+
+**Examples:**
+- `NetworkManager version skew (RHEL 9.6 repos)`
+- `SSH timeout to aarch64 remote builder`
+- `chronyd.service failure in kernel-replace test`
+- `registry.ci HTTP 500 during image pull`
+- `GCS Event-Based hold blocking upload`
+- `podman cleanup race condition`
+
+**Format in triage summary:**
+```markdown
+### Triage summary
+- **ROOT_CAUSE:** <short description for clustering>
+- **Classification:** <category>
+- **Summary:** <one-line explanation>
+- **Next steps:** <recommended actions>
+```
+
 ## Rules
 
 - Do **not** ask "what next?" between stages 1–4.
