@@ -23,20 +23,20 @@ Load **`pipeline-jira`** skill for:
 - COS project conventions, Pipeline Monitoring parent tasks, **sub-task** titles
 - `jira` CLI examples (list, create, comment, transition)
 
+## Deduplication Check
+
+Load **`pipeline-dedup`** skill and run the three-pass deduplication:
+
+1. Pass 1: Exact build match → If found, report "Already tracked by <KEY>" and stop
+2. Pass 2: Similar failure check → If found, draft a comment for existing issue
+3. Pass 3: Semantic analysis → If match found, draft a comment for existing issue
+4. If `NEW_FAILURE`, proceed with creating the subtask
+
 ## Checks before drafting
 
-1. **Deduplication check (REQUIRED)**
-   - Load `pipeline-jira` skill for parent task lookup and deduplication commands
-   - Run exact build match check
-   - If exact match exists: report "Already tracked by <KEY>" and **stop**
-   - Run similar failure check (job/stream/arch)
-   - If similar issues found: compare summaries and decide if same root cause
-     - **Same root cause** → draft a comment for existing issue
-     - **Different root cause** → proceed with new subtask
-
-2. Map failure to **owner hypothesis** (CoreOS pipeline vs RHEL package vs registry/infra vs test flake).
-3. Include **build URL**, **stream/arch**, **short log excerpt or line pointer**, and **classification**.
-4. For "route to RHEL": state **what evidence** would be needed (package delta, NVRA, linked Brew/Jira).
+1. Map failure to **owner hypothesis** (CoreOS pipeline vs RHEL package vs registry/infra vs test flake).
+2. Include **build URL**, **stream/arch**, **short log excerpt or line pointer**, and **classification**.
+3. For "route to RHEL": state **what evidence** would be needed (package delta, NVRA, linked Brew/Jira).
 
 ## Mapping investigator output to Jira body
 
@@ -78,7 +78,6 @@ When creating the Jira description from `@pipeline-investigator` output:
 
 ## Anti-noise rules (from team discussion)
 
-- **One ticket per distinct root cause** — always run deduplication checks first
-- **Always load `pipeline-jira` skill** for deduplication before creating subtasks
+- **One ticket per distinct root cause** — always run deduplication via `pipeline-dedup` skill first
 - For recurring failures with same root cause, **add comments** to existing open issues
 - **Always use the full Jenkins stream** in the subtask summary (e.g., `4.22-9.8` not `4.22`). The stream value comes from the Jenkins build parameters and is needed for automated matching.

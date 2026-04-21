@@ -83,44 +83,9 @@ PARENT=$(jira issue list --project COS --type Task \
   --plain --no-headers | head -1 | awk '{print $2}')
 ```
 
-## Pre-Creation Deduplication
+## Deduplication
 
-Before creating any subtask, run these checks to avoid duplicates.
-
-### Step 1: Exact Build Match
-
-Check if this exact build already has a subtask:
-
-```bash
-jira issue list --parent $PARENT \
-  -q "summary ~ '<job> #<build-number>'" --plain --no-headers
-```
-
-**If results found → STOP, do not create duplicate.**
-
-### Step 2: Similar Failure Check
-
-Query for open subtasks with same job, stream, and architecture:
-
-```bash
-jira issue list --parent $PARENT -s~Closed \
-  -q "summary ~ '<job>' AND summary ~ '<stream>' AND summary ~ '<arch>'" \
-  --plain --no-headers
-```
-
-**If results found → Review the existing issues and decide:**
-- **Same root cause** → Add comment to existing issue instead of creating new
-- **Different root cause** → Proceed with creating new subtask
-
-**Comment template for duplicate occurrences:**
-
-```bash
-jira issue comment add <EXISTING-KEY> $'Additional occurrence detected:
-- **Build:** [#<build>](<jenkins-url>)
-- **Timestamp:** <timestamp>
-
-Same failure pattern - consolidating under this issue.' --no-input
-```
+Load **`pipeline-dedup`** skill for three-pass deduplication logic (exact match, similar failure, semantic analysis) before creating subtasks.
 
 ## Sub-task Structure
 

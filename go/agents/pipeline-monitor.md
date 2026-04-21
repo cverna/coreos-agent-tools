@@ -37,15 +37,15 @@ coreos-tools jenkins builds info <job-name> <build-number>
 
 ## Filtering Already-Tracked Failures
 
-Use Jira as memory to avoid re-investigating known failures. Fetch all tracked builds **once** and filter locally.
+Load **`pipeline-dedup`** skill and run deduplication for each failure:
 
-**Batch approach (one Jira call):**
-1. Use the parent task lookup from `pipeline-jira` skill to find the current week's monitoring task
-2. Fetch **all** subtasks in one call: `jira issue list --parent $PARENT --plain --no-headers`
-3. Parse subtask summaries to extract tracked build numbers (pattern: `<job> #<build>`)
-4. For each Jenkins failure: check if its `<job> #<build>` appears in the tracked set
-   - **If found** → Skip (already tracked)
-   - **If not found** → Include in the failure list for investigation
+1. Fetch all subtasks once: `jira issue list --parent $PARENT --plain --no-headers`
+2. For each Jenkins failure, run the three-pass deduplication:
+   - Pass 1: Exact build match
+   - Pass 2: Similar failure (job+stream+arch)
+   - Pass 3: Semantic analysis
+3. Only include failures that return `NEW_FAILURE` in the "new failures to triage" list
+4. Note any `RELATED_ISSUE` or `SEMANTIC_MATCH` results for reference
 
 ## Auto-closing Resolved Failures
 
