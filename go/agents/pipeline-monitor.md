@@ -36,13 +36,15 @@ coreos-tools jenkins builds info <job-name> <build-number>
 
 ## Filtering Already-Tracked Failures
 
-Before reporting failures, check if they are already tracked in Jira to avoid wasting investigation effort.
+Use Jira as memory to avoid re-investigating known failures. Fetch all tracked builds **once** and filter locally.
 
-**For each failure found:**
+**Batch approach (one Jira call):**
 1. Use the parent task lookup from `pipeline-jira` skill to find the current week's monitoring task
-2. Run the exact build match check: `jira issue list --parent $PARENT -q "summary ~ '<job> #<build>'" --plain --no-headers`
-3. **If results found** → Skip this failure (already tracked)
-4. **If no results** → Include in the failure list for investigation
+2. Fetch **all** subtasks in one call: `jira issue list --parent $PARENT --plain --no-headers`
+3. Parse subtask summaries to extract tracked build numbers (pattern: `<job> #<build>`)
+4. For each Jenkins failure: check if its `<job> #<build>` appears in the tracked set
+   - **If found** → Skip (already tracked)
+   - **If not found** → Include in the failure list for investigation
 
 ## Checks you always perform
 
