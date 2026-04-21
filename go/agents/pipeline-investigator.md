@@ -1,6 +1,7 @@
 ---
 description: Deep triage agent for one failed Jenkins build - gather metadata, logs, classify, summarize with human gate
 mode: subagent
+model: google-vertex-anthropic/claude-opus-4-6@default
 permission:
   edit: deny
   bash:

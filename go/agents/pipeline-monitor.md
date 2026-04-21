@@ -1,6 +1,7 @@
 ---
 description: Discovery agent for Jenkins CI - find failing jobs and builds, identify triage targets
 mode: subagent
+model: google-vertex-anthropic/claude-sonnet-4-6@default
 permission:
   edit: deny
   bash:
