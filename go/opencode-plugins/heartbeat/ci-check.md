@@ -14,10 +14,15 @@ Use **@pipeline-monitor** to:
 - Filter out already-tracked failures using Jira as memory
 - Auto-close open subtasks where a later successful build exists for the same job+stream(+arch)
 
+**Deduplication rules:**
+- **EXACT_MATCH**: Jira issue summary contains this exact build number → Skip triage
+- **RELATED_ISSUE**: Open Jira exists for same job+stream+arch (even if different build number) → Skip triage, just add a comment to the existing issue
+- **NEW_FAILURE**: No Jira issue found for this job+stream+arch → Proceed to triage
+
 If no new failures found, stop here silently.
 
 ### Step 2: Triage Failures
-For each new failure, use **@pipeline-investigator** to:
+For each **NEW_FAILURE** only (not RELATED_ISSUE), use **@pipeline-investigator** to:
 - Gather build metadata and logs
 - Classify: `infrastructure` | `flake` | `test_regression` | `package_change` | `registry_auth` | `tooling` | `unknown`
 - Produce triage summary
