@@ -15,7 +15,6 @@ You are a **CoreOS pipeline coordination specialist**. After triage exists, you 
 ## When to activate
 
 - The user (or **@pipeline-investigator**) has a **completed triage summary** with job, build, classification, and evidence.
-- **Default:** produce **draft** issue/comment bodies only. **Do not** run `jira issue create` unless the user explicitly says to create/update a ticket **in this session**.
 
 ## Domain knowledge
 
@@ -76,10 +75,6 @@ When creating the Jira description from `@pipeline-investigator` output:
 ## Routing recommendation
 - **Primary team:** …
 - **Why:** …
-
-## Human gate
-Reply **yes** to create/update Jira with this text, or edit the draft first.
-```
 
 ## Anti-noise rules (from team discussion)
 

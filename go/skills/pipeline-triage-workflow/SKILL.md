@@ -1,15 +1,15 @@
 ---
 name: pipeline-triage-workflow
-description: Ordered agent-style triage for a single failed Jenkins build - gather metadata, logs, classification, summary; human gate before Jira writes
+description: Ordered agent-style triage for a single failed Jenkins build - gather metadata, logs, classification, summary
 ---
 
 # Pipeline Triage Workflow (agentic)
 
-Run **one failed build** through a **fixed sequence** of stages. Each stage has a **single job** and **structured output** for the next. Do **not** stop between stages for "what next?" — only at **GATE** unless blocked by errors.
+Run **one failed build** through a **fixed sequence** of stages. Each stage has a **single job** and **structured output** for the next. Do **not** stop between stages for "what next?"
 
 **Inputs (required):** `JOB` (Jenkins job name), `BUILD` (integer build number).
 
-**Related skills:** `pipeline-failures` (deep patterns, kola analysis), `pipeline-jira` (COS ticket text after GATE).
+**Related skills:** `pipeline-failures` (deep patterns, kola analysis), `pipeline-jira` (COS ticket formatting).
 
 ---
 
@@ -98,9 +98,9 @@ coreos-tools jenkins builds kola-failures <JOB> <BUILD>
 
 ```markdown
 ### Triage summary
-- **One-line summary:** …
+- **Summary:** One paragraph describing the failure, root cause, and impact.
 - **Evidence:** build URL, log pointers
-- **Suggested next steps:** (e.g. rerun / open COS subtask / escalate to RHEL / snooze test — **suggest only**)
+- **Suggested next steps:** (e.g. rerun / open COS subtask / escalate to RHEL / snooze test)
 - **Related downstream jobs to check:** e.g. `build-arch` if `build` failed (see `pipeline-failures`)
 ```
 
@@ -145,16 +145,6 @@ brew buildinfo <package-nvr>
 - **Related PRs:** <PR URLs or "None found">
 - **Package build:** <Brew URL if applicable>
 ```
-
----
-
-## GATE — Human checkpoint (no Jira / no rerun without approval)
-
-**Stop.** Present the **Gather → Logs → Classify → Summarize → Upstream Links** sections to the user.
-
-**Default policy:** Only **suggest** Jira text or rerun. Do **not** run `jira issue create` or `coreos-tools jenkins jobs build` unless the user **explicitly** asks.
-
-After approval, use **`pipeline-jira`** skill for COS conventions and commands.
 
 ---
 
