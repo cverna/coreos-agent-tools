@@ -135,7 +135,7 @@ func init() {
 	jobsListCmd.Flags().StringVar(&jobsListFilter, "filter", "", "Filter jobs by name (case-insensitive)")
 
 	// jobs build flags
-	jobsBuildCmd.Flags().StringArrayVarP(&buildParams, "param", "p", nil, "Build parameter (KEY=VALUE), can be specified multiple times")
+	jobsBuildCmd.Flags().StringArrayVar(&buildParams, "param", nil, "Build parameter (KEY=VALUE), can be specified multiple times")
 
 	// jobs running flags
 	jobsRunningCmd.Flags().StringVar(&jobsRunningFilter, "job", "", "Filter by job name")
