@@ -1,6 +1,6 @@
 ---
 name: rhcos-build-pipeline
-description: RHCOS build pipeline - two-stage process, Jenkins jobs, and multi-architecture builds
+description: RHCOS build pipeline - scheduling, two-stage builds, versionlock mechanism, and troubleshooting
 ---
 
 # RHCOS Build Pipeline
@@ -63,6 +63,96 @@ coreos-tools jenkins builds info build-arch <build-number>
 | `ppc64le` | IBM POWER little-endian | `build-arch` |
 | `s390x` | IBM Z mainframe | `build-arch` |
 
+## Build Scheduling
+
+### build-mechanical Job
+
+The `build-mechanical` job is the main scheduler for RHCOS base image builds:
+
+- **Schedule:** Daily at **10:00 UTC** (cron: `0 10 * * *`)
+- **Source:** `jobs/build-mechanical.Jenkinsfile` in [fedora-coreos-pipeline](https://github.com/coreos/fedora-coreos-pipeline)
+- **Behavior:** Triggers `build` jobs **sequentially** for all mechanical streams
+
+**Execution Order:**
+```
+c10s → c9s → rhel-10.2 → rhel-9.8 → rhel-9.6
+```
+
+Due to sequential execution (each build takes 2-3 hours), later streams start much later:
+- `c10s`: ~10:00 UTC
+- `rhel-9.6`: ~17:00-18:00 UTC (last in queue)
+
+### Checking Schedule
+
+```bash
+# View recent build-mechanical runs
+coreos-tools jenkins builds list build-mechanical -n 10
+
+# Check what streams were triggered in a specific run
+coreos-tools jenkins builds log build-mechanical <build-number> | grep "Triggering build"
+```
+
+## FORCE Parameter
+
+The `FORCE` parameter controls whether to rebuild even if no changes are detected.
+
+| FORCE Value | Behavior |
+|-------------|----------|
+| `false` (default) | Skip build if no config changes detected (shows "💤 no new build") |
+| `true` | Always rebuild, even without config changes |
+
+**When FORCE is needed:**
+- Forcing an immediate rebuild to pick up new packages from repos (before next scheduled run)
+- Recovering from a failed build that left stale state
+
+**When FORCE is NOT needed:**
+- Normal scheduled builds (they run daily and usually produce new builds)
+- The `build-mechanical` job does NOT use FORCE; it relies on cosa detecting changes
+
+**How cosa detects changes:**
+- Checks if source config (rhel-coreos-config) commit changed
+- Checks package manifest/lockfile changes
+- Does NOT automatically detect RHEL repo package updates (mechanical streams don't use strict lockfiles)
+
+## Versionlock Mechanism
+
+During `build-node-image`, packages from the base image are versionlocked to prevent
+unexpected upgrades. This is done **dynamically at build time**, not via static config files.
+
+### How It Works
+
+1. `build` job creates base image with packages at specific versions (e.g., `NetworkManager-1.52.0-9`)
+2. `build-node-image` runs `rpm-ostree experimental compose treefile-apply`
+3. This creates versionlocks for ALL packages in the base image
+4. New packages can be installed, but locked packages cannot be upgraded
+
+You can see this in the build logs:
+```
+Adding versionlock on: NetworkManager-1:1.52.0-9.el9_6.*
+Adding versionlock on: NetworkManager-tui-1:1.52.0-9.el9_6.*
+...
+```
+
+### Version Skew Problem
+
+If a new package in the repos requires a newer version of a locked package, DNF fails:
+
+```
+Error: package NetworkManager-ovs-1:1.52.0-10 requires NetworkManager = 1:1.52.0-10,
+       but package NetworkManager-1:1.52.0-9 is filtered out by exclude filtering
+```
+
+**Typical scenario:**
+1. Base image built with package version X
+2. RHEL repos updated with package version X+1
+3. A new dependency package requires version X+1
+4. `build-node-image` fails because version X is locked and X+1 is excluded
+
+**Fix:** Rebuild the base image (`build` job) to pick up the newer package version:
+```bash
+coreos-tools jenkins jobs build build --param STREAM=rhel-9.6
+```
+
 ## Job Commands
 
 ```bash
@@ -73,7 +163,10 @@ coreos-tools jenkins jobs list
 coreos-tools jenkins jobs info <job-name>
 
 # Trigger a build
-coreos-tools jenkins jobs build <job-name> -p STREAM=<stream> -p FORCE=true
+coreos-tools jenkins jobs build <job-name> --param STREAM=<stream>
+
+# Trigger a forced build (bypass "no changes" detection)
+coreos-tools jenkins jobs build <job-name> --param STREAM=<stream> --param FORCE=true
 
 # View build queue
 coreos-tools jenkins queue list
