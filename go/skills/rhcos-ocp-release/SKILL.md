@@ -75,34 +75,73 @@ oc adm release info quay.io/openshift-release-dev/ocp-release:<version>-x86_64
 
 ## RPM Package Lists
 
-### Extract RPMs from RHCOS Image
+The `oc adm release info --rpmdb` flag extracts RPM package information directly from the release image metadata without pulling the full container image. This is significantly faster than the traditional `podman pull` approach.
+
+### Prerequisites
+
+- `--rpmdb-cache` directory is required (e.g., `/tmp/rpmdb-cache`)
+- Pull secret with access to `quay.io/openshift-release-dev/ocp-v4.0-art-dev`
+
+### List All RPMs in a Release
+
+```bash
+oc adm release info quay.io/openshift-release-dev/ocp-release:<version>-x86_64 \
+  --rpmdb --rpmdb-cache /tmp/rpmdb-cache
+```
+
+### Query Specific Package
+
+```bash
+# Get kernel version
+oc adm release info quay.io/openshift-release-dev/ocp-release:<version>-x86_64 \
+  --rpmdb --rpmdb-cache /tmp/rpmdb-cache | grep kernel
+
+# Example output:
+#   kernel-5.14.0-570.19.1.el9_6
+#   kernel-core-5.14.0-570.19.1.el9_6
+#   kernel-modules-5.14.0-570.19.1.el9_6
+```
+
+### Compare RPMs Between Releases
+
+The `--rpmdb-diff` flag shows package changes between two releases:
+
+```bash
+oc adm release info \
+  quay.io/openshift-release-dev/ocp-release:<version1>-x86_64 \
+  quay.io/openshift-release-dev/ocp-release:<version2>-x86_64 \
+  --rpmdb-diff --rpmdb-cache /tmp/rpmdb-cache
+
+# Example output:
+# Changed:
+#   kernel 5.14.0-570.19.1.el9_6 → 5.14.0-570.23.1.el9_6
+#   cri-o 1.32.4-2.rhaos4.19.git98d1c09.el9 → 1.32.5-3.rhaos4.19.git9607a04.el9
+# Added:
+#   new-package-1.0.0-1.el9
+# Removed:
+#   old-package-1.0.0-1.el9
+```
+
+### Target Other Images
+
+By default, `--rpmdb` queries the machine-os (rhel-coreos) image. Use `--rpmdb-image` to target other images:
+
+```bash
+oc adm release info quay.io/openshift-release-dev/ocp-release:<version>-x86_64 \
+  --rpmdb --rpmdb-cache /tmp/rpmdb-cache --rpmdb-image <image-name>
+```
+
+### Legacy Method (Fallback)
+
+If `--rpmdb` is unavailable, use the traditional container approach:
 
 ```bash
 # Get RHCOS image reference
 RHCOS_IMAGE=$(oc adm release info quay.io/openshift-release-dev/ocp-release:<version>-x86_64 --image-for rhel-coreos)
 
-# Pull the image
+# Pull and query
 podman pull $RHCOS_IMAGE
-
-# List all RPMs (sorted)
 podman run --rm $RHCOS_IMAGE rpm -qa --qf '%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n' | sort
-
-# List just package names
-podman run --rm $RHCOS_IMAGE rpm -qa --qf '%{NAME}\n' | sort -u
-
-# Query specific package
-podman run --rm $RHCOS_IMAGE rpm -q kernel
-```
-
-### Compare RPMs Between Releases
-
-```bash
-# Extract RPMs from two releases
-podman run --rm $IMAGE1 rpm -qa | sort > /tmp/rpms1.txt
-podman run --rm $IMAGE2 rpm -qa | sort > /tmp/rpms2.txt
-
-# Compare
-diff /tmp/rpms1.txt /tmp/rpms2.txt
 ```
 
 ## Multi-Architecture Support
@@ -125,12 +164,13 @@ Replace `amd64` in the URL with other architectures:
 VERSION=$(curl -s "https://amd64.ocp.releases.ci.openshift.org/api/v1/releasestreams/accepted" | \
   jq -r '."4-stable"[] | select(startswith("4.21.") and (contains("-rc") | not))' | head -1)
 
-# 2. Get RHCOS image
-RHCOS=$(oc adm release info quay.io/openshift-release-dev/ocp-release:${VERSION}-x86_64 --image-for rhel-coreos)
+# 2. List all RPMs
+oc adm release info quay.io/openshift-release-dev/ocp-release:${VERSION}-x86_64 \
+  --rpmdb --rpmdb-cache /tmp/rpmdb-cache
 
-# 3. Pull and list RPMs
-podman pull $RHCOS
-podman run --rm $RHCOS rpm -qa --qf '%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n' | sort
+# 3. Or query specific package
+oc adm release info quay.io/openshift-release-dev/ocp-release:${VERSION}-x86_64 \
+  --rpmdb --rpmdb-cache /tmp/rpmdb-cache | grep kernel
 ```
 
 ## RHEL Package Flow to RHCOS
