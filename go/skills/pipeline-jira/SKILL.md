@@ -42,8 +42,11 @@ jira issue create --type Task --project COS \
 ### Managing Issues
 
 ```bash
-# Add a comment
-jira issue comment add <ISSUE-KEY> "<comment-text>" --no-input
+# Add a comment (comment text is a positional argument, NOT --body flag)
+jira issue comment add <ISSUE-KEY> "<comment-text>"
+
+# Multi-line comment
+jira issue comment add <ISSUE-KEY> $'Line one\n\nLine two'
 
 # View issue details
 jira issue view <ISSUE-KEY>
@@ -51,6 +54,8 @@ jira issue view <ISSUE-KEY>
 # Transition issue status
 jira issue move <ISSUE-KEY> "In Progress"
 ```
+
+> ⚠️ **Important:** `jira issue comment add` takes the comment as a **positional argument**, not a `--body` flag. The `--body` flag is only for `jira issue create`.
 
 ## COS Project Conventions
 
