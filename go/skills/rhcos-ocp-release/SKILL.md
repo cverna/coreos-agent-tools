@@ -7,7 +7,7 @@ description: OCP release queries - latest versions, RHCOS images, and RPM packag
 
 Query OCP release versions, RHCOS container images, and RPM package lists.
 
-> Related: `rhcos-versions`, `rhcos-artifacts`, `rhcos-brew`, `rhcos-build-pipeline`
+> Related: `rhcos-versions`, `rhcos-artifacts`, `rhcos-brew`, `rhcos-build-pipeline`, `bug-investigation`
 
 ## Release Controller API
 
@@ -57,20 +57,6 @@ curl -s "https://amd64.ocp.releases.ci.openshift.org/api/v1/releasestream/4.21.0
 ```bash
 curl -s "https://amd64.ocp.releases.ci.openshift.org/api/v1/releasestreams/accepted" | \
   jq -r '."4-stable"[] | select(startswith("4.21."))'
-```
-
-## RHCOS Image Information
-
-### Get RHCOS Image Reference from Release
-
-```bash
-oc adm release info quay.io/openshift-release-dev/ocp-release:<version>-x86_64 --image-for rhel-coreos
-```
-
-### Get Full Release Info
-
-```bash
-oc adm release info quay.io/openshift-release-dev/ocp-release:<version>-x86_64
 ```
 
 ## RPM Package Lists
@@ -133,13 +119,13 @@ oc adm release info quay.io/openshift-release-dev/ocp-release:<version>-x86_64 \
 
 ### Legacy Method (Fallback)
 
-If `--rpmdb` is unavailable, use the traditional container approach:
+Only use this method if `--rpmdb` is unavailable or not working. The modern `--rpmdb` approach above is significantly faster and doesn't require pulling multi-GB container images.
 
 ```bash
 # Get RHCOS image reference
 RHCOS_IMAGE=$(oc adm release info quay.io/openshift-release-dev/ocp-release:<version>-x86_64 --image-for rhel-coreos)
 
-# Pull and query
+# Pull and query (slow - downloads ~1GB image)
 podman pull $RHCOS_IMAGE
 podman run --rm $RHCOS_IMAGE rpm -qa --qf '%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n' | sort
 ```

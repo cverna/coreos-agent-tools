@@ -24,17 +24,27 @@ jira issue view <issue-key> --comments 20
 jira issue list -q "<search-query>"
 ```
 
-## Fetching a RHCOS container
+## Querying RHCOS Package Versions
 
-Use the `oc` command to find the RHCOS container for a specific OCP version
+Use `oc adm release info --rpmdb` to query RPM packages directly from the release metadata without pulling the full container image:
 
 ```bash
-# Find the RHCOS container
-oc adm release info 4.21.3 --image-for rhel-coreos
+# List all RPMs in a release (fast - no container pull required)
+oc adm release info quay.io/openshift-release-dev/ocp-release:4.21.3-x86_64 \
+  --rpmdb --rpmdb-cache /tmp/rpmdb-cache
 
-# Get the list of installed packages in the container
-podman run --rm quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:bb577f5ed1e0de68ca8beec05200378acb1f1d67098c04fda602627c3f8f31c4 rpm -qa
+# Query a specific package
+oc adm release info quay.io/openshift-release-dev/ocp-release:4.21.3-x86_64 \
+  --rpmdb --rpmdb-cache /tmp/rpmdb-cache | grep <package-name>
+
+# Compare RPMs between two releases (useful for finding when a change was introduced)
+oc adm release info \
+  quay.io/openshift-release-dev/ocp-release:4.21.2-x86_64 \
+  quay.io/openshift-release-dev/ocp-release:4.21.3-x86_64 \
+  --rpmdb-diff --rpmdb-cache /tmp/rpmdb-cache
 ```
+
+> See `rhcos-ocp-release` skill for comprehensive release query workflows and legacy fallback methods.
 
 ## Dist-Git (pkgs.devel.redhat.com)
 
