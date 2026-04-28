@@ -1,7 +1,7 @@
 ---
 description: Jira coordination agent - draft COS subtasks and route failures to appropriate teams (RHEL, ART, infra)
 mode: subagent
-model: google-vertex/zai-org/glm-5-maas
+model: google-vertex-anthropic/claude-sonnet-4-6@default
 permission:
   edit: deny
   bash:
