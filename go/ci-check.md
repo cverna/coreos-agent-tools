@@ -1,7 +1,3 @@
----
-interval: 60m
----
-
 ## Automated CI Pipeline Check
 
 Perform a pipeline health check using the agent workflow. Only report if issues are found.
