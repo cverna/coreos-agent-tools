@@ -8,7 +8,7 @@ Perform a pipeline health check using the agent workflow. Only report if issues 
 
 ### Step 1: Discovery
 
-Use **@pipeline-monitor** to:
+Use **@.config/opencode/agents/pipeline-monitor** to:
 - Check `build`, `build-arch`, and `build-node-image` jobs
 - List all jobs in red/unstable state (ignore currently running)
 - Filter using 3-pass deduplication:
@@ -26,7 +26,7 @@ If no new failures found, stop here silently.
 
 ### Step 2: Triage
 
-For each pending TRIAGE todo, use **@pipeline-investigator** to:
+For each pending TRIAGE todo, use **@.config/opencode/agents/pipeline-investigator** to:
 - Gather build metadata and logs
 - Classify the failure
 - Produce triage summary with **ROOT_CAUSE**
@@ -52,7 +52,7 @@ Create todos for Jira creation (one per cluster):
 
 ### Step 4: Create Jira
 
-For each pending JIRA todo, use **@pipeline-handoff** to create **ONE subtask per cluster**.
+For each pending JIRA todo, use **@.config/opencode/agents/pipeline-handoff** to create **ONE subtask per cluster**.
 
 Include all affected builds in the ticket description.
 
