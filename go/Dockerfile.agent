@@ -195,6 +195,7 @@ COPY go/AGENTS.container.md /opt/opencode-config/AGENTS.md
 COPY go/skills/ /opt/opencode-skills/
 COPY go/agents/ /opt/opencode-agents/
 COPY go/ci-check.md /opt/ci-check.md
+COPY go/fcos-ci-check.md /opt/fcos-ci-check.md
 
 # Create an init script to sync config files on every run
 # This ensures new skills/commands/agents are available after image updates
