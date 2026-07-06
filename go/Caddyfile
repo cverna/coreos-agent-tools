@@ -1,0 +1,9 @@
+:9090 {
+    root * /var/www
+    file_server browse
+}
+
+:9091 {
+    root * /workspace
+    file_server browse
+}

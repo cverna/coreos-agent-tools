@@ -28,6 +28,8 @@
 #     --security-opt label=disable \
 #     -e GH_TOKEN="your-github-token" \
 #     -e CONTAINER_HOST=unix:///run/podman/podman.sock \
+#     -p 9090:9090 \
+#     -p 9091:9091 \
 #     -v $(pwd):/workspace \
 #     ghcr.io/cverna/coreos-agent-tools/coreos-agent:latest
 #
@@ -113,6 +115,10 @@ RUN dnf install -y --setopt=install_weak_deps=False \
     podman-remote \
     ripgrep \
     golang \
+    nodejs \
+    npm \
+    caddy \
+    pandoc \
     # Initramfs debugging tools
     dracut \
     cpio \
@@ -149,15 +155,8 @@ RUN JIRA_ARCH=$([ "$TARGETARCH" = "amd64" ] && echo "x86_64" || echo "arm64") &&
     chmod +x /usr/local/bin/jira && \
     rm -rf /tmp/jira.tar.gz /tmp/jira_*
 
-# Download OpenCode binary (pre-built from GitHub releases)
-# Binary naming: opencode-linux-x64.tar.gz or opencode-linux-arm64.tar.gz
-RUN OPENCODE_ARCH=$([ "$TARGETARCH" = "amd64" ] && echo "x64" || echo "arm64") && \
-    curl -fsSL "https://github.com/anomalyco/opencode/releases/latest/download/opencode-linux-${OPENCODE_ARCH}.tar.gz" \
-      -o /tmp/opencode.tar.gz && \
-    tar -xzf /tmp/opencode.tar.gz -C /tmp && \
-    mv /tmp/opencode /usr/local/bin/opencode && \
-    chmod +x /usr/local/bin/opencode && \
-    rm -rf /tmp/opencode.tar.gz
+# Install OpenCode beta via npm
+RUN npm install -g opencode-ai@beta
 
 # Download OpenShift client (oc and kubectl) from official mirror
 # Binary naming: openshift-client-linux.tar.gz (amd64) or openshift-client-linux-arm64.tar.gz (arm64)
@@ -169,6 +168,9 @@ RUN OC_SUFFIX=$([ "$TARGETARCH" = "amd64" ] && echo "" || echo "-arm64") && \
     mv /tmp/kubectl /usr/local/bin/kubectl && \
     chmod +x /usr/local/bin/oc /usr/local/bin/kubectl && \
     rm -rf /tmp/oc.tar.gz /tmp/README.md
+
+# Copy Caddy configuration
+COPY go/Caddyfile /etc/caddy/Caddyfile
 
 # Copy Brew (Red Hat Koji) profile configuration
 COPY go/brew.conf /etc/koji.conf.d/brew.conf
@@ -185,6 +187,9 @@ RUN useradd -m -u 1000 -s /bin/bash agent
 # ~/.local: application data (opencode sessions in share/, model selection in state/)
 RUN mkdir -p /home/agent/.config /home/agent/.local && \
     chown -R agent:agent /home/agent
+
+# Create /var/www and set ownership for agent user
+RUN mkdir -p /var/www && chown agent:agent /var/www
 
 # Copy OpenCode config files to a staging location
 # When ~/.config is mounted as a volume, these files need to be copied on first run.
@@ -213,6 +218,8 @@ RUN printf '%s\n' \
     'cp -r /opt/opencode-skills/* "$HOME/.config/opencode/skills/"' \
     'mkdir -p "$HOME/.config/opencode/agents"' \
     'cp /opt/opencode-agents/*.md "$HOME/.config/opencode/agents/"' \
+    '# Start Caddy web server in the background' \
+    'caddy start --config /etc/caddy/Caddyfile 2>/dev/null' \
 
     'exec "$@"' > /usr/local/bin/entrypoint.sh && \
     chmod +x /usr/local/bin/entrypoint.sh

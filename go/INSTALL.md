@@ -199,12 +199,27 @@ podman run -it --rm \
   -v /run/user/501/podman/podman.sock:/run/podman/podman.sock \
   --security-opt label=disable \
   -v $(pwd):/workspace \
+  -p 9090:9090 \
+  -p 9091:9091 \
   -e JIRA_API_TOKEN="your-token" \
   -e GOOGLE_CLOUD_PROJECT="your-gcp-project" \
   -e VERTEX_LOCATION="global" \
   -e CONTAINER_HOST="unix:///run/podman/podman.sock" \
   ghcr.io/cverna/coreos-agent-tools/coreos-agent:latest
 ```
+
+### Web File Browser
+
+The container runs a Caddy web server automatically on startup, serving two directories:
+
+| Port | Directory | URL |
+|------|-----------|-----|
+| 9090 | `/var/www` | http://localhost:9090 |
+| 9091 | `/workspace` | http://localhost:9091 |
+
+Agents can write HTML files to `/var/www` or `/workspace` and you can view them directly in your browser. Both directories support directory browsing.
+
+Make sure to expose the ports when starting the container (`-p 9090:9090 -p 9091:9091`).
 
 The `/analyze-failures` slash command is pre-installed and can create Jira sub-tasks.
 
@@ -225,6 +240,8 @@ podman run -it --rm \
   -v /run/user/501/podman/podman.sock:/run/podman/podman.sock \
   --security-opt label=disable \
   -v $(pwd):/workspace \
+  -p 9090:9090 \
+  -p 9091:9091 \
   -e CONTAINER_HOST="unix:///run/podman/podman.sock" \
   ghcr.io/cverna/coreos-agent-tools/coreos-agent:latest
 ```
@@ -295,6 +312,8 @@ alias coreos-agent='podman run -it --rm \
   -v /run/user/501/podman/podman.sock:/run/podman/podman.sock \
   --security-opt label=disable \
   -v $(pwd):/workspace \
+  -p 9090:9090 \
+  -p 9091:9091 \
   -e GH_TOKEN="$GH_TOKEN" \
   -e JIRA_API_TOKEN="$JIRA_API_TOKEN" \
   -e GOOGLE_CLOUD_PROJECT="$GOOGLE_CLOUD_PROJECT" \
