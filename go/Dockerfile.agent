@@ -117,7 +117,6 @@ RUN dnf install -y --setopt=install_weak_deps=False \
     golang \
     nodejs \
     npm \
-    caddy \
     pandoc \
     # Initramfs debugging tools
     dracut \
@@ -159,7 +158,7 @@ RUN JIRA_ARCH=$([ "$TARGETARCH" = "amd64" ] && echo "x86_64" || echo "arm64") &&
     rm -rf /tmp/jira.tar.gz /tmp/jira_*
 
 # Install OpenCode beta via npm
-RUN npm install -g opencode-ai@beta
+RUN npm install -g @opencode-ai/cli@beta
 
 # Download OpenShift client (oc and kubectl) from official mirror
 # Binary naming: openshift-client-linux.tar.gz (amd64) or openshift-client-linux-arm64.tar.gz (arm64)
@@ -171,9 +170,6 @@ RUN OC_SUFFIX=$([ "$TARGETARCH" = "amd64" ] && echo "" || echo "-arm64") && \
     mv /tmp/kubectl /usr/local/bin/kubectl && \
     chmod +x /usr/local/bin/oc /usr/local/bin/kubectl && \
     rm -rf /tmp/oc.tar.gz /tmp/README.md
-
-# Copy Caddy configuration
-COPY go/Caddyfile /etc/caddy/Caddyfile
 
 # Copy Brew (Red Hat Koji) profile configuration
 COPY go/brew.conf /etc/koji.conf.d/brew.conf
@@ -221,9 +217,6 @@ RUN printf '%s\n' \
     'cp -r /opt/opencode-skills/* "$HOME/.config/opencode/skills/"' \
     'mkdir -p "$HOME/.config/opencode/agents"' \
     'cp /opt/opencode-agents/*.md "$HOME/.config/opencode/agents/"' \
-    '# Start Caddy web server in the background' \
-    'caddy start --config /etc/caddy/Caddyfile 2>/dev/null' \
-
     'exec "$@"' > /usr/local/bin/entrypoint.sh && \
     chmod +x /usr/local/bin/entrypoint.sh
 
@@ -236,4 +229,4 @@ USER agent
 
 # Use entrypoint script to initialize config, then run the command
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-CMD ["opencode"]
+CMD ["opencode2"]
