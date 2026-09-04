@@ -93,7 +93,7 @@
 #
 # ============================================================================
 
-FROM quay.io/fedora/fedora:43
+FROM quay.io/fedora/fedora:44
 
 ARG TARGETARCH
 
@@ -131,6 +131,9 @@ RUN dnf install -y --setopt=install_weak_deps=False \
     vim-common \
     fedora-packager \
     krb5-workstation \
+    gcc \
+    krb5-devel \
+    python3-devel \
     && dnf clean all \
     && rm -rf /var/cache/dnf
 
